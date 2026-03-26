@@ -1,0 +1,2303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Claude Memory GUI</title>
+  <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f0f0f;
+      --surface: #1a1a1a;
+      --surface2: #222222;
+      --border: #2e2e2e;
+      --text: #e0e0e0;
+      --muted: #777;
+      --accent: #d97706;
+      --accent2: #b45309;
+      --err: #ef4444;
+      --warn: #f59e0b;
+      --ok: #22c55e;
+      --user: #6366f1;
+      --feedback: #ec4899;
+      --project: #14b8a6;
+      --reference: #8b5cf6;
+      --claude_md: #f97316;
+      --command: #38bdf8;
+      --unknown: #64748b;
+      --preview-code-bg: #1e1e1e;
+      --preview-blockquote: #333;
+      --preview-link: #60a5fa;
+    }
+
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg: #ffffff;
+        --surface: #f4f4f5;
+        --surface2: #e4e4e7;
+        --border: #d4d4d8;
+        --text: #18181b;
+        --muted: #71717a;
+        --preview-code-bg: #f0f0f0;
+        --preview-blockquote: #e4e4e7;
+        --preview-link: #2563eb;
+      }
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Header ── */
+    header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 16px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    header h1 { font-size: 15px; font-weight: 600; color: var(--accent); letter-spacing: 0.02em; }
+    #search-bar {
+      flex: 1;
+      max-width: 420px;
+      display: flex;
+      gap: 6px;
+    }
+    #search-input {
+      flex: 1;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 5px 10px;
+      border-radius: 5px;
+      font-size: 13px;
+    }
+    #search-input:focus { outline: 1px solid var(--accent); }
+    select {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 5px 8px;
+      border-radius: 5px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    #status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--ok);
+      margin-left: auto;
+      flex-shrink: 0;
+    }
+
+    /* ── Layout ── */
+    .layout {
+      display: grid;
+      grid-template-columns: 220px 5px 280px 5px 1fr;
+      flex: 1;
+      overflow: hidden;
+    }
+    .layout.has-stats-panel {
+      grid-template-columns: 220px 5px 280px 5px 1fr 5px 405px;
+    }
+    .resize-handle {
+      background: var(--border);
+      cursor: col-resize;
+      position: relative;
+      z-index: 20;
+      transition: background 0.15s;
+      flex-shrink: 0;
+    }
+    .resize-handle::after {
+      content: '';
+      position: absolute;
+      top: 0; bottom: 0;
+      left: -4px; right: -4px;
+    }
+    .resize-handle:hover, .resize-handle.dragging { background: var(--accent); }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Tab switcher inside sidebar */
+    .sidebar-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .sidebar-tab {
+      flex: 1;
+      padding: 8px 4px;
+      font-size: 11px;
+      font-weight: 600;
+      text-align: center;
+      cursor: pointer;
+      color: var(--muted);
+      border-bottom: 2px solid transparent;
+      transition: color 0.1s;
+      letter-spacing: 0.03em;
+    }
+    .sidebar-tab:hover { color: var(--text); }
+    .sidebar-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+    .sidebar-section { flex: 1; display: flex; flex-direction: column; min-height: 0; padding: 6px 0; }
+    #project-list { flex: 1; overflow-y: auto; min-height: 0; }
+    .sidebar-section.hidden { display: none; }
+
+    .sidebar-title {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      padding: 6px 12px 4px;
+    }
+    .tree-footer {
+      padding: 7px 12px;
+      border-top: 1px solid var(--border);
+      font-size: 10px;
+      color: var(--muted);
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      flex-shrink: 0;
+    }
+    .tree-footer-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .tree-footer-dot {
+      width: 5px; height: 5px;
+      border-radius: 1px;
+      flex-shrink: 0;
+    }
+
+    /* ── Project tree ── */
+    .tree-folder {
+      user-select: none;
+    }
+    .tree-folder-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 8px 4px 0;
+      cursor: pointer;
+      font-size: 11px;
+      color: var(--muted);
+      border-left: 2px solid transparent;
+    }
+    .tree-folder-row:hover { color: var(--text); background: var(--surface2); }
+    .tree-chevron {
+      flex-shrink: 0;
+      width: 14px;
+      text-align: center;
+      font-size: 9px;
+      transition: transform 0.15s;
+      color: var(--muted);
+    }
+    .tree-chevron.open { transform: rotate(90deg); }
+    .tree-folder-row.active-folder { border-left-color: var(--accent); color: var(--text); background: var(--surface2); }
+    .tree-folder-label {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-weight: 500;
+    }
+    .tree-children { display: none; }
+    .tree-children.open {
+      display: block;
+      position: relative;
+    }
+    .tree-children.open::before {
+      content: '';
+      position: absolute;
+      left: var(--guide-x, 19px);
+      top: 2px;
+      bottom: 6px;
+      width: 1px;
+      background: var(--border);
+      pointer-events: none;
+    }
+
+    .project-item {
+      padding: 5px 8px 5px 0;
+      cursor: pointer;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border-left: 2px solid transparent;
+      color: var(--muted);
+      transition: color 0.1s, background 0.1s;
+    }
+    .project-item:hover { background: var(--surface2); color: var(--text); }
+    .project-item.active { border-left-color: var(--accent); color: var(--text); background: var(--surface2); }
+    .project-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .project-count {
+      font-size: 10px;
+      background: var(--border);
+      padding: 1px 5px;
+      border-radius: 10px;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+
+    /* ── Filter bar ── */
+    .filter-bar {
+      display: flex;
+      align-items: center;
+      padding: 8px 8px 4px;
+      gap: 2px;
+    }
+    .filter-item {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      padding: 5px 6px;
+      font-size: 11px;
+      font-weight: 500;
+      border-radius: 5px;
+      border: none;
+      background: none;
+      cursor: pointer;
+      color: var(--muted);
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .filter-item:hover { color: var(--text); background: var(--surface2); }
+    .filter-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 2px;
+      flex-shrink: 0;
+      opacity: 0.35;
+      transition: opacity 0.15s;
+    }
+    #fp-memory   .filter-dot { background: var(--user); }
+    #fp-claudemd .filter-dot { background: var(--claude_md); }
+    #fp-conversations .filter-dot { background: var(--project); }
+    #fp-memory.active    { color: var(--user);    background: color-mix(in srgb, var(--user) 12%, var(--bg)); }
+    #fp-claudemd.active  { color: var(--claude_md); background: color-mix(in srgb, var(--claude_md) 10%, var(--bg)); }
+    #fp-conversations.active { color: var(--project); background: color-mix(in srgb, var(--project) 10%, var(--bg)); }
+    .filter-item.active .filter-dot { opacity: 1; }
+
+    /* ── Conversation list ── */
+    .conv-item.active { border-left-color: var(--accent); background: var(--surface2); }
+    .section-divider { font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); padding: 8px 12px 4px; border-top: 1px solid var(--border); margin-top: 4px; cursor: pointer; display: flex; align-items: center; gap: 5px; user-select: none; }
+    .section-divider:first-child { border-top: none; margin-top: 0; }
+    .section-divider:hover { color: var(--text); }
+    .section-chevron { font-size: 9px; flex-shrink: 0; }
+    .section-body { }
+    .section-body.collapsed { display: none; }
+
+    /* ── Chat view ── */
+    .chat-scroll {
+      flex: 1;
+      overflow-y: auto;
+      background: var(--preview-code-bg);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px;
+      gap: 16px;
+    }
+    .chat-turn {
+      width: 100%;
+      max-width: 860px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .chat-role {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--muted);
+      padding: 0 4px;
+    }
+    .chat-bubble {
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 13px;
+      line-height: 1.65;
+    }
+    .chat-bubble-user {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    .chat-bubble-assistant {
+      background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+      border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--border));
+      color: var(--text);
+    }
+    .chat-bubble .md-preview { padding: 0; background: none; border: none; border-radius: 0; max-width: none; font-size: 13px; }
+    .chat-tool {
+      font-size: 11px;
+      color: var(--muted);
+      font-family: monospace;
+      background: var(--preview-code-bg);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 5px 10px;
+      margin: 4px 0;
+      cursor: default;
+    }
+    .chat-meta { font-size: 10px; color: var(--muted); opacity: 0.6; padding: 0 4px; }
+
+    /* ── Conversation stats right panel ── */
+    .conv-stats-panel {
+      display: none;
+      flex-direction: column;
+      min-width: 0;
+      border-left: 1px solid var(--border);
+      overflow: hidden;
+      background: var(--surface);
+    }
+    .conv-stats-panel.visible { display: flex; }
+    .stats-toggle-btn {
+      font-size: 11px;
+      padding: 3px 9px;
+      border-radius: 5px;
+      border: 1px solid var(--border);
+      background: none;
+      color: var(--muted);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .stats-toggle-btn:hover { color: var(--text); border-color: var(--muted); }
+    .stats-toggle-btn.active { color: var(--project); border-color: color-mix(in srgb, var(--project) 40%, var(--border)); background: color-mix(in srgb, var(--project) 8%, transparent); }
+    .conv-stats-panel-header {
+      padding: 9px 14px;
+      border-bottom: 1px solid var(--border);
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      flex-shrink: 0;
+      background: var(--surface);
+    }
+
+    /* ── Stats tab ── */
+    .stats-scroll { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 14px; background: var(--preview-code-bg); }
+    .stats-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+    .stats-card-title { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); margin-bottom: 12px; }
+    .cost-total { font-size: 30px; font-weight: 700; color: var(--text); letter-spacing: -0.02em; }
+    .cost-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    .cost-chip { font-size: 11px; color: var(--muted); background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: 3px 8px; }
+    .cost-chip strong { color: var(--text); font-weight: 600; }
+    .token-bar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; gap: 1px; margin-bottom: 14px; }
+    .token-bar-seg { height: 100%; }
+    .tok-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .tok-table th { text-align: left; color: var(--muted); font-weight: 500; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; padding-bottom: 8px; }
+    .tok-table th:not(:first-child) { text-align: right; }
+    .tok-table td { padding: 5px 0; border-top: 1px solid var(--border); vertical-align: middle; }
+    .tok-table td:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+    .tok-table .tok-total td { font-weight: 600; border-top: 2px solid var(--border); padding-top: 8px; }
+    .tok-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+    .savings-bar-track { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; margin: 8px 0 6px; }
+    .savings-bar-fill { height: 100%; background: var(--ok); border-radius: 3px; }
+    .savings-labels { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
+    .savings-labels strong { color: var(--ok); }
+    .stats-meta-row { display: flex; justify-content: space-between; font-size: 12px; padding: 5px 0; border-top: 1px solid var(--border); }
+    .stats-meta-row:first-child { border-top: none; padding-top: 0; }
+    .stats-meta-row .label { color: var(--muted); }
+
+    /* Sidebar header row with toggle */
+    .sidebar-header-row {
+      display: flex;
+      align-items: center;
+      padding: 6px 12px 4px;
+    }
+    .sidebar-header-row .sidebar-title { padding: 0; flex: 1; }
+    .toggle-empty {
+      font-size: 9px;
+      color: var(--muted);
+      cursor: pointer;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 1px 5px;
+      background: none;
+      white-space: nowrap;
+    }
+    .toggle-empty:hover { color: var(--text); border-color: var(--muted); }
+    .toggle-empty.on { color: var(--accent); border-color: var(--accent); }
+
+    /* Commands in sidebar */
+    .command-sidebar-item {
+      padding: 7px 12px;
+      cursor: pointer;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-left: 2px solid transparent;
+      color: var(--muted);
+      transition: color 0.1s, background 0.1s;
+    }
+    .command-sidebar-item:hover { background: var(--surface2); color: var(--text); }
+    .command-sidebar-item.active { border-left-color: var(--command); color: var(--text); background: var(--surface2); }
+    .command-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: monospace; }
+    .command-scope {
+      font-size: 9px;
+      background: var(--border);
+      padding: 1px 5px;
+      border-radius: 10px;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+
+    /* ── File list ── */
+    .file-list {
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+    .file-list-header {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .file-list-header span { font-size: 11px; color: var(--muted); flex: 1; }
+    .file-list-footer {
+      margin-top: auto;
+      padding: 7px 12px;
+      font-size: 11px;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .file-list-footer-path {
+      font-size: 10px;
+      color: var(--muted);
+      opacity: 0.6;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-family: monospace;
+    }
+    .reload-btn {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      color: var(--muted);
+      padding: 2px 6px;
+      font-size: 13px;
+      cursor: pointer;
+      line-height: 1;
+      transition: all 0.15s;
+      flex-shrink: 0;
+    }
+    .reload-btn:hover { color: var(--text); border-color: var(--muted); }
+    .sort-toggle {
+      display: flex;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .sort-btn {
+      background: none;
+      border: none;
+      color: var(--muted);
+      padding: 2px 9px;
+      font-size: 10px;
+      cursor: pointer;
+      transition: background 0.1s, color 0.1s;
+      white-space: nowrap;
+    }
+    .sort-btn:hover { color: var(--text); }
+    .sort-btn.active { background: var(--surface2); color: var(--text); font-weight: 600; }
+    .group-toggle-btn {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      color: var(--muted);
+      padding: 2px 7px;
+      font-size: 10px;
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .group-toggle-btn:hover { color: var(--text); border-color: var(--muted); }
+    .group-toggle-btn.on { color: var(--accent); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--bg)); }
+    .group-toggle-btn .gtb-dot {
+      width: 5px; height: 5px; border-radius: 50%;
+      background: currentColor; opacity: 0.7;
+    }
+    .btn {
+      background: var(--accent);
+      color: #000;
+      border: none;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn:hover { background: var(--accent2); }
+    .btn-sm {
+      background: var(--surface2);
+      color: var(--muted);
+      border: 1px solid var(--border);
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      cursor: pointer;
+    }
+    .btn-sm:hover { color: var(--text); }
+    .btn-danger {
+      background: transparent;
+      color: var(--err);
+      border: 1px solid var(--err);
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      cursor: pointer;
+    }
+    .btn-danger:hover { background: var(--err); color: #fff; }
+
+    .file-item {
+      padding: 11px 12px;
+      cursor: pointer;
+      border-left: 2px solid transparent;
+      transition: background 0.1s;
+    }
+    .file-item:hover { background: var(--surface2); }
+    .file-item.active { border-left-color: var(--accent); background: var(--surface2); }
+    .file-item-name {
+      font-size: 12px;
+      font-weight: 500;
+      margin-bottom: 2px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      justify-content: space-between;
+    }
+    .file-item-name-text { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .file-item-desc { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 4px; }
+    .file-item-meta { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); opacity: 0.7; }
+    .file-item-meta span { display: flex; align-items: center; gap: 3px; }
+    .type-badge {
+      font-size: 9px;
+      font-weight: 500;
+      padding: 1px 6px;
+      border-radius: 999px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+
+    /* ── Editor pane ── */
+    .editor-pane {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .editor-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .editor-filename {
+      font-size: 12px;
+      color: var(--muted);
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-family: monospace;
+    }
+    .editor-filename.modified::after { content: ' ●'; color: var(--accent); }
+    .mode-toggle {
+      display: flex;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .mode-btn {
+      background: none;
+      border: none;
+      color: var(--muted);
+      padding: 3px 10px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: background 0.1s, color 0.1s;
+    }
+    .mode-btn:hover { color: var(--text); }
+    .mode-btn.active { background: var(--accent); color: #000; font-weight: 600; }
+    textarea {
+      flex: 1;
+      background: var(--bg);
+      color: var(--text);
+      border: none;
+      resize: none;
+      padding: 16px 24px;
+      font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      outline: none;
+      tab-size: 2;
+    }
+
+    /* ── Markdown preview ── */
+    .md-preview-scroll {
+      flex: 1;
+      overflow-y: auto;
+      background: var(--preview-code-bg);
+      display: flex;
+      justify-content: center;
+      padding: 32px 16px;
+    }
+    .md-preview {
+      width: 100%;
+      max-width: 900px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 32px 40px;
+      font-size: 14px;
+      line-height: 1.75;
+      color: var(--text);
+      align-self: flex-start;
+    }
+    .md-preview h1, .md-preview h2, .md-preview h3,
+    .md-preview h4, .md-preview h5, .md-preview h6 {
+      margin: 1.4em 0 0.5em;
+      line-height: 1.3;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .md-preview h1 { font-size: 1.6em; border-bottom: 1px solid var(--border); padding-bottom: 0.3em; }
+    .md-preview h2 { font-size: 1.3em; border-bottom: 1px solid var(--border); padding-bottom: 0.2em; }
+    .md-preview h3 { font-size: 1.1em; }
+    .md-preview p { margin: 0.75em 0; }
+    .md-preview a { color: var(--preview-link); text-decoration: underline; }
+    .md-preview ul, .md-preview ol { margin: 0.5em 0 0.5em 1.5em; }
+    .md-preview li { margin: 0.25em 0; }
+    .md-preview li > ul, .md-preview li > ol { margin: 0.1em 0 0.1em 1.2em; }
+    .md-preview code {
+      font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
+      font-size: 0.85em;
+      background: var(--preview-code-bg);
+      padding: 0.15em 0.35em;
+      border-radius: 3px;
+    }
+    .md-preview pre {
+      background: var(--preview-code-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      margin: 1em 0;
+    }
+    .md-preview pre code { background: none; padding: 0; font-size: 0.82em; }
+    .md-preview blockquote {
+      border-left: 3px solid var(--accent);
+      padding: 4px 0 4px 16px;
+      margin: 1em 0;
+      color: var(--muted);
+      background: var(--preview-blockquote);
+      border-radius: 0 4px 4px 0;
+    }
+    .md-preview hr { border: none; border-top: 1px solid var(--border); margin: 1.5em 0; }
+    .md-preview table { border-collapse: collapse; width: 100%; margin: 1em 0; font-size: 0.9em; }
+    .md-preview th, .md-preview td { border: 1px solid var(--border); padding: 6px 12px; text-align: left; }
+    .md-preview th { background: var(--surface); font-weight: 600; }
+    .md-preview tr:nth-child(even) td { background: var(--surface); }
+    /* Frontmatter block styling */
+    .md-frontmatter {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 14px;
+      margin-bottom: 20px;
+      font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .md-frontmatter-row { display: flex; gap: 8px; }
+    .md-frontmatter-key { color: var(--accent); font-weight: 600; min-width: 90px; }
+    .md-frontmatter-val { color: var(--text); }
+
+    /* ── Health panel ── */
+    .health-panel {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      max-height: 120px;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+    .health-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 6px 12px;
+      font-size: 11px;
+      border-bottom: 1px solid var(--border);
+    }
+    .health-item:last-child { border-bottom: none; }
+    .health-icon { flex-shrink: 0; margin-top: 1px; }
+
+    /* ── Commands panel (middle column when in command mode) ── */
+    .command-detail {
+      padding: 13px 12px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      border-left: 2px solid transparent;
+      transition: background 0.1s;
+    }
+    .command-detail:hover { background: var(--surface2); }
+    .command-detail.active { border-left-color: var(--command); background: var(--surface2); }
+    .command-detail-name {
+      font-size: 12px;
+      font-weight: 600;
+      font-family: monospace;
+      color: var(--command);
+      margin-bottom: 3px;
+    }
+    .command-detail-scope { font-size: 10px; color: var(--muted); margin-bottom: 4px; }
+    .command-detail-desc { font-size: 11px; color: var(--muted); line-height: 1.4; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+
+    /* ── Search results overlay ── */
+    #search-results {
+      position: fixed;
+      top: 44px; left: 0; right: 0;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      z-index: 100;
+      max-height: 60vh;
+      overflow-y: auto;
+      display: none;
+    }
+    .search-result-item {
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+    }
+    .search-result-item:hover { background: var(--surface2); }
+    .sr-top { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
+    .sr-name { font-size: 13px; font-weight: 500; }
+    .sr-project { font-size: 10px; color: var(--muted); }
+    .sr-snippet { font-size: 11px; color: var(--muted); font-family: monospace; }
+
+    /* ── New memory modal ── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 24px;
+      width: 480px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .modal h2 { font-size: 14px; }
+    .field { display: flex; flex-direction: column; gap: 4px; }
+    .field label { font-size: 11px; color: var(--muted); }
+    .field input, .field select, .field textarea {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 7px 10px;
+      border-radius: 5px;
+      font-size: 13px;
+      font-family: inherit;
+    }
+    .field input:focus, .field select:focus, .field textarea:focus { outline: 1px solid var(--accent); }
+    .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+    /* ── Empty states ── */
+    .empty {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      font-size: 13px;
+      gap: 8px;
+    }
+    .empty-icon { width: 48px; height: 48px; opacity: 0.25; }
+    .empty { gap: 12px; }
+
+    /* ── CLAUDE.md entry in file list ── */
+    .claude-md-item {
+      padding: 11px 12px;
+      cursor: pointer;
+      border-left: 2px solid transparent;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.1s;
+    }
+    .claude-md-item:hover { background: var(--surface2); }
+    .claude-md-item.active { border-left-color: var(--claude_md); background: var(--surface2); }
+    .claude-md-item .type-badge { background: var(--claude_md); color: #000; }
+    .claude-md-item { justify-content: space-between; }
+    .claude-md-item .item-name { font-size: 12px; font-weight: 500; color: var(--text); flex: 1; }
+
+    /* Type colors — only two variants used in file list */
+    .type-claude_md { background: color-mix(in srgb, var(--claude_md) 8%, var(--bg)); border-color: color-mix(in srgb, var(--claude_md) 30%, transparent); color: var(--claude_md); }
+    .type-md { background: color-mix(in srgb, var(--unknown) 8%, var(--bg)); border-color: color-mix(in srgb, var(--unknown) 30%, transparent); color: var(--unknown); }
+    .type-command { background: var(--surface2); border-color: var(--command); color: var(--command); }
+
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <h1>Claude Memory GUI</h1>
+  <div id="search-bar">
+    <input id="search-input" type="text" placeholder="Search memories…" autocomplete="off" />
+    <select id="type-filter">
+      <option value="">All types</option>
+      <option value="user">user</option>
+      <option value="feedback">feedback</option>
+      <option value="project">project</option>
+      <option value="reference">reference</option>
+      <option value="claude_md">MD files</option>
+    </select>
+  </div>
+  <div id="status-dot" title="Live sync active"></div>
+</header>
+
+<!-- Search results overlay -->
+<div id="search-results"></div>
+
+<!-- Main layout -->
+<div class="layout">
+
+  <!-- Sidebar with tabs -->
+  <div class="sidebar">
+    <div class="sidebar-tabs">
+      <div class="sidebar-tab active" id="tab-memory" onclick="switchTab('memory')">Projects</div>
+      <div class="sidebar-tab" id="tab-commands" onclick="switchTab('commands')">Commands</div>
+    </div>
+
+    <!-- Projects list (memory tab) -->
+    <div class="sidebar-section" id="section-memory">
+      <!-- Content type filter bar -->
+      <div class="filter-bar">
+        <button class="filter-item active" id="fp-memory" onclick="toggleFilter('memory')"><span class="filter-dot"></span>Memory</button>
+        <button class="filter-item active" id="fp-claudemd" onclick="toggleFilter('claudemd')"><span class="filter-dot"></span>MD files</button>
+        <button class="filter-item active" id="fp-conversations" onclick="toggleFilter('conversations')"><span class="filter-dot"></span>Chats</button>
+      </div>
+      <div class="sidebar-header-row">
+        <div class="sidebar-title">Projects</div>
+        <button class="toggle-empty" id="toggle-empty-btn" onclick="toggleShowEmpty()">show empty</button>
+      </div>
+      <div id="project-list"></div>
+      <div class="tree-footer" id="tree-footer"></div>
+    </div>
+
+    <!-- Commands list (commands tab) -->
+    <div class="sidebar-section hidden" id="section-commands">
+      <div class="sidebar-title">Custom Commands</div>
+      <div id="command-sidebar-list"></div>
+    </div>
+  </div>
+
+  <div class="resize-handle" data-col="sidebar"></div>
+
+  <!-- Middle: file list OR command list -->
+  <div class="file-list" id="file-list">
+    <div class="empty">${ICON_FOLDER}Select a project</div>
+  </div>
+
+  <div class="resize-handle" data-col="filelist"></div>
+
+  <!-- Editor pane -->
+  <div class="editor-pane" id="editor-pane">
+    <div class="empty">${ICON_FILE}Select a file to edit</div>
+  </div>
+
+  <div class="resize-handle" data-col="stats" id="stats-resize-handle" style="display:none"></div>
+
+  <!-- Conversation stats panel (right side, only shown for chat files) -->
+  <div class="conv-stats-panel" id="conv-stats-panel"></div>
+
+</div>
+
+<!-- New memory modal -->
+<div class="modal-overlay" id="new-file-modal" style="display:none">
+  <div class="modal">
+    <h2>New Memory File</h2>
+    <div class="field">
+      <label>Filename (without .md)</label>
+      <input id="nf-filename" type="text" placeholder="e.g. feedback_testing" />
+    </div>
+    <div class="field">
+      <label>Name</label>
+      <input id="nf-name" type="text" placeholder="Short descriptive name" />
+    </div>
+    <div class="field">
+      <label>Description</label>
+      <input id="nf-desc" type="text" placeholder="One-line description" />
+    </div>
+    <div class="field">
+      <label>Type</label>
+      <select id="nf-type">
+        <option value="user">user</option>
+        <option value="feedback">feedback</option>
+        <option value="project">project</option>
+        <option value="reference">reference</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Body</label>
+      <textarea id="nf-body" rows="4" placeholder="Memory content…"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-sm" id="nf-cancel">Cancel</button>
+      <button class="btn" id="nf-create">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- New command modal -->
+<div class="modal-overlay" id="new-command-modal" style="display:none">
+  <div class="modal">
+    <h2>New Command</h2>
+    <div class="field">
+      <label>Command name (used as /name in Claude Code)</label>
+      <input id="nc-name" type="text" placeholder="e.g. my-task" />
+    </div>
+    <div class="field">
+      <label>Instructions (what Claude should do when invoked)</label>
+      <textarea id="nc-body" rows="6" placeholder="Describe what this command should do…"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-sm" id="nc-cancel">Cancel</button>
+      <button class="btn" id="nc-create">Create</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let projects = [];
+let commands = [];
+let activeProjectId = null;
+let activeFilePath = null;
+let files = [];
+let modified = false;
+let saveTimeout = null;
+let currentTab = 'memory'; // 'memory' | 'commands'
+let fileSort = 'modified';
+let groupFiles = true;
+const collapsedSections = new Set(); // 'alpha' | 'modified'
+let activeFilters = new Set(['memory', 'claudemd', 'conversations']);
+let activeConvPath = null;
+let statsPanelOpen = true; // remembers toggle state across conversations
+let cachedHealth = [];
+let cachedConversations = [];
+let cachedMdFiles = [];
+
+// ── Panel widths & resize ──────────────────────────────────────────────────
+const colWidths = { sidebar: 220, filelist: 280, stats: 405 };
+
+function applyGridCols() {
+  const layout = document.querySelector('.layout');
+  const hasStats = layout.classList.contains('has-stats-panel');
+  layout.style.gridTemplateColumns =
+    `${colWidths.sidebar}px 5px ${colWidths.filelist}px 5px 1fr` +
+    (hasStats ? ` 5px ${colWidths.stats}px` : '');
+}
+
+document.addEventListener('mousedown', e => {
+  const handle = e.target.closest('.resize-handle');
+  if (!handle) return;
+  e.preventDefault();
+  const col = handle.dataset.col;
+  const startX = e.clientX;
+  const startW = colWidths[col];
+  handle.classList.add('dragging');
+  document.body.style.cursor = 'col-resize';
+  document.body.style.userSelect = 'none';
+  const onMove = e => {
+    const delta = e.clientX - startX;
+    colWidths[col] = col === 'stats'
+      ? Math.max(180, startW - delta)
+      : Math.max(140, startW + delta);
+    applyGridCols();
+  };
+  const onUp = () => {
+    handle.classList.remove('dragging');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+  };
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+});
+
+// ── SVG icons ──────────────────────────────────────────────────────────────
+const ICON_FOLDER = `<svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M3 7a2 2 0 0 1 2-2h3.586a1 1 0 0 1 .707.293L10.414 6.5A1 1 0 0 0 11.121 6.793H19a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/>
+</svg>`;
+
+const ICON_FILE = `<svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+  <polyline points="14 2 14 8 20 8"/>
+  <line x1="16" y1="13" x2="8" y2="13"/>
+  <line x1="16" y1="17" x2="8" y2="17"/>
+  <line x1="10" y1="9" x2="8" y2="9"/>
+</svg>`;
+
+const ICON_COMMAND = `<svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+  <polyline points="4 17 10 11 4 5"/>
+  <line x1="12" y1="19" x2="20" y2="19"/>
+</svg>`;
+
+// ── API ────────────────────────────────────────────────────────────────────
+async function api(method, url, body) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(url, opts);
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+// ── Boot ───────────────────────────────────────────────────────────────────
+async function boot() {
+  applyGridCols();
+  [projects, commands] = await Promise.all([
+    api('GET', '/api/projects'),
+    api('GET', '/api/commands'),
+  ]);
+  renderProjects();
+  renderCommandSidebar();
+  setupSSE();
+}
+
+// ── Tab switching ──────────────────────────────────────────────────────────
+function switchTab(tab) {
+  currentTab = tab;
+  document.getElementById('tab-memory').classList.toggle('active', tab === 'memory');
+  document.getElementById('tab-commands').classList.toggle('active', tab === 'commands');
+  document.getElementById('section-memory').classList.toggle('hidden', tab !== 'memory');
+  document.getElementById('section-commands').classList.toggle('hidden', tab !== 'commands');
+
+  if (tab === 'commands') {
+    renderCommandsMiddlePanel();
+  } else {
+    // Restore memory panel
+    if (activeProjectId) {
+      selectProject(activeProjectId);
+    } else {
+      document.getElementById('file-list').innerHTML = '<div class="empty">${ICON_FOLDER}Select a project</div>';
+    }
+  }
+}
+
+// ── Visible count per project (respects active filters, uses cached data) ──
+function visibleCount(proj) {
+  let n = 0;
+  if (activeFilters.has('memory')) n += proj.memoryCount || 0;
+  if (activeFilters.has('claudemd')) n += proj.mdFileCount || 0;
+  if (activeFilters.has('conversations')) n += proj.conversationCount || 0;
+  return n;
+}
+
+// ── Content type filter ────────────────────────────────────────────────────
+async function toggleFilter(key) {
+  if (activeFilters.has(key)) {
+    if (activeFilters.size === 1) return;
+    activeFilters.delete(key);
+  } else {
+    activeFilters.add(key);
+    if (key === 'conversations' && activeProjectId && cachedConversations.length === 0) {
+      cachedConversations = await api('GET', `/api/projects/${activeProjectId}/conversations`);
+    }
+  }
+  document.getElementById(`fp-${key}`).classList.toggle('active', activeFilters.has(key));
+  renderProjects(); // cheap — uses cached projects array, no server call
+  if (activeProjectId) {
+    const proj = projects.find(p => p.id === activeProjectId);
+    renderFileList(proj, files, cachedHealth, cachedConversations);
+  }
+}
+
+// ── File sort ──────────────────────────────────────────────────────────────
+async function setFileSort(mode, e) {
+  e.stopPropagation();
+  fileSort = mode;
+  if (activeProjectId) await selectProject(activeProjectId);
+}
+
+// ── Group toggle ───────────────────────────────────────────────────────────
+function toggleGroupFiles() {
+  groupFiles = !groupFiles;
+  const btn = document.getElementById('group-toggle-btn');
+  if (btn) btn.classList.toggle('on', groupFiles);
+  const proj = projects.find(p => p.id === activeProjectId);
+  if (proj) renderFileList(proj, files, cachedHealth, cachedConversations);
+}
+
+// ── Show-empty toggle ──────────────────────────────────────────────────────
+let showEmptyProjects = false;
+
+function toggleShowEmpty() {
+  showEmptyProjects = !showEmptyProjects;
+  const btn = document.getElementById('toggle-empty-btn');
+  btn.classList.toggle('on', showEmptyProjects);
+  btn.textContent = showEmptyProjects ? 'hide empty' : 'show empty';
+  renderProjects();
+}
+
+// ── Project tree building ──────────────────────────────────────────────────
+function buildProjectTree(projectList) {
+  const nonGlobal = projectList.filter(p => p.id !== '__global__');
+  // Parse each id into segments
+  const parsed = nonGlobal.map(p => ({
+    project: p,
+    segments: p.id.replace(/^-/, '').split('-').filter(Boolean),
+  }));
+
+  // Find common prefix to strip (home dir segments shared by all)
+  let prefixLen = 0;
+  if (parsed.length > 0) {
+    const first = parsed[0].segments;
+    outer: for (let i = 0; i < first.length - 1; i++) {
+      for (const { segments } of parsed) {
+        if (segments[i] !== first[i]) break outer;
+      }
+      prefixLen = i + 1;
+    }
+  }
+
+  // Build trie from remaining segments
+  const root = { children: {}, project: null };
+  for (const { project, segments } of parsed) {
+    const rel = segments.slice(prefixLen);
+    if (rel.length === 0) continue;
+    let node = root;
+    for (let i = 0; i < rel.length; i++) {
+      const seg = rel[i];
+      if (!node.children[seg]) node.children[seg] = { children: {}, project: null };
+      if (i === rel.length - 1) node.children[seg].project = project;
+      node = node.children[seg];
+    }
+  }
+  return root;
+}
+
+// Collapse single-child folders into one label (path compression)
+function compressTree(node) {
+  const keys = Object.keys(node.children);
+  for (const key of keys) {
+    compressTree(node.children[key]);
+    const child = node.children[key];
+    // If this folder has exactly one child and no project of its own, merge
+    const childKeys = Object.keys(child.children);
+    if (!child.project && childKeys.length === 1) {
+      const grandKey = childKeys[0];
+      const grandChild = child.children[grandKey];
+      delete node.children[key];
+      const mergedKey = key + '/' + grandKey;
+      node.children[mergedKey] = grandChild;
+    }
+  }
+}
+
+// ── Render projects ────────────────────────────────────────────────────────
+// Track which folders have been explicitly closed (everything open by default)
+const closedFolders = new Set();
+
+function renderProjects() {
+  const el = document.getElementById('project-list');
+  el.innerHTML = '';
+
+  const filtered = showEmptyProjects ? projects : projects.filter(p => p.id === '__global__' || visibleCount(p) > 0);
+
+  // Global entry at top
+  const global = filtered.find(p => p.id === '__global__');
+  if (global) {
+    const item = document.createElement('div');
+    item.className = 'project-item' + (global.id === activeProjectId ? ' active' : '');
+    item.style.paddingLeft = '12px';
+    item.innerHTML = `
+      <span class="project-label">🌐 Global</span>
+      <span class="project-count">${visibleCount(global)}</span>
+    `;
+    item.onclick = () => { switchTab('memory'); selectProject(global.id); };
+    el.appendChild(item);
+  }
+
+  // Build and compress tree for non-global
+  const tree = buildProjectTree(filtered);
+  compressTree(tree);
+  renderTreeNode(el, tree, 0, '');
+
+  // Footer counts (across ALL projects, not just filtered)
+  const footerEl = document.getElementById('tree-footer');
+  if (footerEl) {
+    const totalMem = projects.reduce((s, p) => s + (p.memoryCount || 0), 0);
+    const totalMd = projects.reduce((s, p) => s + (p.mdFileCount || 0), 0);
+    const totalConv = projects.reduce((s, p) => s + (p.conversationCount || 0), 0);
+    const parts = [
+      { label: `${totalMem} memories`, color: 'var(--user)' },
+      { label: `${totalMd} MD files`, color: 'var(--claude_md)' },
+      { label: `${totalConv} chats`, color: 'var(--project)' },
+    ];
+    footerEl.innerHTML = parts.map(p =>
+      `<span class="tree-footer-item"><span class="tree-footer-dot" style="background:${p.color}"></span>${p.label}</span>`
+    ).join('');
+  }
+}
+
+function renderTreeNode(container, node, depth, pathKey) {
+  const keys = Object.keys(node.children).sort();
+  for (const key of keys) {
+    const child = node.children[key];
+    const childPath = pathKey ? pathKey + '/' + key : key;
+    const hasChildren = Object.keys(child.children).length > 0;
+    const isOpen = !closedFolders.has(childPath);
+    const indent = 12 + depth * 14;
+
+    if (hasChildren) {
+      // Folder row
+      const folder = document.createElement('div');
+      folder.className = 'tree-folder';
+
+      const row = document.createElement('div');
+      row.className = 'tree-folder-row';
+      row.style.paddingLeft = indent + 'px';
+      row.innerHTML = `
+        <span class="tree-chevron${isOpen ? ' open' : ''}">▶</span>
+        <span class="tree-folder-label">${escHtml(key)}</span>
+      `;
+      row.onclick = () => {
+        if (closedFolders.has(childPath)) closedFolders.delete(childPath);
+        else closedFolders.add(childPath);
+        renderProjects();
+        // If the folder itself is a project, also select it
+        if (child.project) { switchTab('memory'); selectProject(child.project.id); }
+      };
+      folder.appendChild(row);
+
+      // If this folder IS also a project, add a click target
+      if (child.project) {
+        const proj = child.project;
+        row.title = proj.id;
+        // Count badge on the folder row
+        const badge = document.createElement('span');
+        badge.className = 'project-count';
+        badge.textContent = visibleCount(proj);
+        row.appendChild(badge);
+        row.classList.toggle('active-folder', proj.id === activeProjectId);
+      }
+
+      const childrenEl = document.createElement('div');
+      childrenEl.className = 'tree-children' + (isOpen ? ' open' : '');
+      childrenEl.style.setProperty('--guide-x', (indent + 7) + 'px');
+      renderTreeNode(childrenEl, child, depth + 1, childPath);
+      folder.appendChild(childrenEl);
+      container.appendChild(folder);
+    } else {
+      // Leaf project item
+      const proj = child.project;
+      if (!proj) continue;
+      const item = document.createElement('div');
+      item.className = 'project-item' + (proj.id === activeProjectId ? ' active' : '');
+      item.style.paddingLeft = indent + 'px';
+      item.innerHTML = `
+        <span class="project-label" title="${escHtml(proj.id)}">${escHtml(key)}</span>
+        <span class="project-count">${visibleCount(proj)}</span>
+      `;
+      item.onclick = () => { switchTab('memory'); selectProject(proj.id); };
+      container.appendChild(item);
+    }
+  }
+}
+
+// ── Select project ─────────────────────────────────────────────────────────
+async function selectProject(id) {
+  if (id !== activeProjectId) { cachedHealth = []; cachedConversations = []; cachedMdFiles = []; }
+  activeProjectId = id;
+  renderProjects();
+
+  const proj = projects.find(p => p.id === id);
+  const fetches = [
+    api('GET', `/api/projects/${id}/memories`),
+    api('GET', `/api/projects/${id}/health`),
+    activeFilters.has('conversations') ? api('GET', `/api/projects/${id}/conversations`) : Promise.resolve([]),
+    activeFilters.has('claudemd') ? api('GET', `/api/projects/${id}/mdfiles`) : Promise.resolve([]),
+  ];
+  const [memFiles, health, conversations, mdFiles] = await Promise.all(fetches);
+  files = memFiles;
+  cachedHealth = health;
+  cachedConversations = conversations;
+  cachedMdFiles = mdFiles;
+  renderFileList(proj, files, cachedHealth, cachedConversations, cachedMdFiles);
+}
+
+// ── Render file list ───────────────────────────────────────────────────────
+function renderFileList(proj, files, health, conversations = [], mdFiles = []) {
+  const el = document.getElementById('file-list');
+  el.innerHTML = '';
+
+  const memCount = files.filter(f => f.filename !== 'MEMORY.md').length;
+  const countParts = [];
+  if (activeFilters.has('claudemd') && mdFiles.length) countParts.push(`${mdFiles.length} MD files`);
+  if (activeFilters.has('memory')) countParts.push(`${memCount} memories`);
+  if (activeFilters.has('conversations')) countParts.push(`${conversations.length} chats`);
+  const hdr = document.createElement('div');
+  hdr.className = 'file-list-header';
+
+  const sortToggle = document.createElement('div');
+  sortToggle.className = 'sort-toggle';
+  sortToggle.innerHTML = `
+    <button class="sort-btn ${fileSort === 'alpha' ? 'active' : ''}" onclick="setFileSort('alpha', arguments[0])">A–Z</button>
+    <button class="sort-btn ${fileSort === 'modified' ? 'active' : ''}" onclick="setFileSort('modified', arguments[0])">Recent</button>
+  `;
+  hdr.appendChild(sortToggle);
+
+  const grpBtn = document.createElement('button');
+  grpBtn.id = 'group-toggle-btn';
+  grpBtn.className = 'group-toggle-btn' + (groupFiles ? ' on' : '');
+  grpBtn.title = 'Toggle grouped view';
+  grpBtn.innerHTML = '<span class="gtb-dot"></span>Group';
+  grpBtn.onclick = toggleGroupFiles;
+  grpBtn.style.marginLeft = 'auto';
+  hdr.appendChild(grpBtn);
+
+  const reloadBtn = document.createElement('button');
+  reloadBtn.className = 'reload-btn';
+  reloadBtn.title = 'Reload';
+  reloadBtn.innerHTML = '↻';
+  reloadBtn.onclick = () => { if (activeProjectId) selectProject(activeProjectId); };
+  hdr.appendChild(reloadBtn);
+
+  el.appendChild(hdr);
+
+  // ── Helpers to build DOM items ──────────────────────────────────────────
+  function makeMdFileItem(f) {
+    const isActive = activeFilePath === f.filePath;
+    const item = document.createElement('div');
+    item.className = 'file-item' + (isActive ? ' active' : '');
+    const badgeClass = 'type-badge type-md';
+    const badge = 'md';
+    item.innerHTML = `
+      <div class="file-item-name">
+        <span class="file-item-name-text">${escHtml(f.description || f.filename)}</span>
+        <span class="${badgeClass}">${badge}</span>
+      </div>
+      <div class="file-item-meta">
+        <span>${relativeTime(f.mtime)}</span>
+      </div>
+    `;
+    item.onclick = () => openFile(f.filePath, f.filename);
+    item.dataset.mtime = f.mtime || '';
+    item.dataset.name = f.description || f.filename;
+    return item;
+  }
+
+  function makeMemoryItem(f) {
+    const item = document.createElement('div');
+    item.className = 'file-item' + (activeFilePath === f.filePath ? ' active' : '');
+    item.innerHTML = `
+      <div class="file-item-name">
+        <span class="file-item-name-text">${escHtml(f.name)}</span>
+        <span class="type-badge">memory</span>
+      </div>
+      <div class="file-item-desc">${escHtml(f.description || f.filename)}</div>
+      <div class="file-item-meta">
+        <span>${f.lineCount} lines</span>
+        <span>${relativeTime(f.mtime)}</span>
+      </div>
+    `;
+    item.onclick = () => openFile(f.filePath, f.filename);
+    item.dataset.mtime = f.mtime || '';
+    item.dataset.name = f.name;
+    return item;
+  }
+
+  function makeConvItem(conv) {
+    const item = document.createElement('div');
+    item.className = 'file-item conv-item' + (activeConvPath === conv.filePath ? ' active' : '');
+    item.innerHTML = `
+      <div class="file-item-name">
+        <span class="file-item-name-text">${escHtml(conv.firstUserMessage || 'Empty conversation')}</span>
+        <span class="type-badge">chat</span>
+      </div>
+      <div class="file-item-desc">${escHtml(conv.model || '')}</div>
+      <div class="file-item-meta">
+        <span>${formatBytes(conv.size)}</span>
+        <span>${relativeTime(conv.mtime)}</span>
+      </div>
+    `;
+    item.onclick = () => openConversation(conv);
+    item.dataset.mtime = conv.mtime || '';
+    item.dataset.name = conv.firstUserMessage || '';
+    return item;
+  }
+
+  const sortedMemory = [...files]
+    .filter(f => f.filename !== 'MEMORY.md')
+    .sort((a, b) => fileSort === 'modified'
+      ? new Date(b.mtime) - new Date(a.mtime)
+      : a.name.localeCompare(b.name));
+
+  const sortedConvs = [...conversations]
+    .sort((a, b) => fileSort === 'modified'
+      ? new Date(b.mtime) - new Date(a.mtime)
+      : (a.firstUserMessage || '').localeCompare(b.firstUserMessage || ''));
+
+  const sortedMdFiles = [...mdFiles]
+    .sort((a, b) => fileSort === 'modified'
+      ? new Date(b.mtime) - new Date(a.mtime)
+      : (a.description || a.filename).localeCompare(b.description || b.filename));
+
+  function makeCollapsibleSection(key, label, buildItems) {
+    const isCollapsed = collapsedSections.has(key);
+    const divider = document.createElement('div');
+    divider.className = 'section-divider';
+    const chevron = document.createElement('span');
+    chevron.className = 'section-chevron';
+    chevron.textContent = isCollapsed ? '‹' : '⌄';
+    divider.appendChild(chevron);
+    divider.appendChild(document.createTextNode(label));
+    const body = document.createElement('div');
+    body.className = 'section-body' + (isCollapsed ? ' collapsed' : '');
+    buildItems(body);
+    divider.onclick = () => {
+      if (collapsedSections.has(key)) collapsedSections.delete(key);
+      else collapsedSections.add(key);
+      const nowCollapsed = collapsedSections.has(key);
+      chevron.textContent = nowCollapsed ? '‹' : '⌄';
+      body.classList.toggle('collapsed', nowCollapsed);
+    };
+    el.appendChild(divider);
+    el.appendChild(body);
+  }
+
+  if (groupFiles) {
+    // ── Grouped view ──────────────────────────────────────────────────────
+    const activeSectionCount = [
+      activeFilters.has('claudemd') && mdFiles.length > 0,
+      activeFilters.has('memory'),
+      activeFilters.has('conversations') && conversations.length > 0
+    ].filter(Boolean).length;
+    const showDividers = activeSectionCount > 1;
+
+    if (activeFilters.has('claudemd') && mdFiles.length > 0) {
+      if (showDividers) {
+        makeCollapsibleSection('claudemd', `MD files · ${mdFiles.length}`, body => {
+          for (const f of sortedMdFiles) body.appendChild(makeMdFileItem(f));
+        });
+      } else {
+        for (const f of sortedMdFiles) el.appendChild(makeMdFileItem(f));
+      }
+    }
+
+    if (activeFilters.has('memory')) {
+      if (showDividers) {
+        makeCollapsibleSection('memory', `Memory · ${memCount}`, body => {
+          for (const f of sortedMemory) body.appendChild(makeMemoryItem(f));
+        });
+      } else {
+        for (const f of sortedMemory) el.appendChild(makeMemoryItem(f));
+      }
+    }
+
+    if (activeFilters.has('conversations') && conversations.length > 0) {
+      if (showDividers) {
+        makeCollapsibleSection('conversations', `Conversations · ${conversations.length}`, body => {
+          for (const conv of sortedConvs) body.appendChild(makeConvItem(conv));
+        });
+      } else {
+        for (const conv of sortedConvs) el.appendChild(makeConvItem(conv));
+      }
+    }
+  } else {
+    // ── Flat view — all items interleaved, sorted by current sort ─────────
+    const allItems = [];
+
+    if (activeFilters.has('claudemd')) {
+      for (const f of mdFiles) {
+        allItems.push({ el: makeMdFileItem(f), mtime: new Date(f.mtime), name: f.description || f.filename });
+      }
+    }
+    if (activeFilters.has('memory')) {
+      for (const f of files.filter(f => f.filename !== 'MEMORY.md')) {
+        allItems.push({ el: makeMemoryItem(f), mtime: new Date(f.mtime), name: f.name });
+      }
+    }
+    if (activeFilters.has('conversations')) {
+      for (const conv of conversations) {
+        allItems.push({ el: makeConvItem(conv), mtime: new Date(conv.mtime), name: conv.firstUserMessage || '' });
+      }
+    }
+
+    allItems.sort((a, b) => fileSort === 'modified'
+      ? b.mtime - a.mtime
+      : a.name.localeCompare(b.name));
+
+    for (const item of allItems) el.appendChild(item.el);
+  }
+
+  // Health panel
+  if (health.length > 0) {
+    const hp = document.createElement('div');
+    hp.className = 'health-panel';
+    for (const issue of health) {
+      const icon = issue.level === 'error' ? '🔴' : '🟡';
+      hp.innerHTML += `<div class="health-item"><span class="health-icon">${icon}</span><span>${escHtml(issue.message)}</span></div>`;
+    }
+    el.appendChild(hp);
+  }
+
+  // Count footer
+  const footer = document.createElement('div');
+  footer.className = 'file-list-footer';
+  const countSpan = document.createElement('span');
+  countSpan.textContent = countParts.join(' · ') || 'Nothing selected';
+  footer.appendChild(countSpan);
+  if (proj && proj.path) {
+    const pathSpan = document.createElement('span');
+    pathSpan.className = 'file-list-footer-path';
+    pathSpan.textContent = proj.path;
+    pathSpan.title = proj.path;
+    footer.appendChild(pathSpan);
+  }
+  el.appendChild(footer);
+}
+
+// ── Commands: sidebar ──────────────────────────────────────────────────────
+function renderCommandSidebar() {
+  const el = document.getElementById('command-sidebar-list');
+  el.innerHTML = '';
+  if (commands.length === 0) {
+    el.innerHTML = '<div style="padding:12px;font-size:11px;color:var(--muted)">No commands found</div>';
+    return;
+  }
+  for (const cmd of commands) {
+    const item = document.createElement('div');
+    item.className = 'command-sidebar-item' + (activeFilePath === cmd.filePath ? ' active' : '');
+    item.innerHTML = `
+      <span class="command-name">/${escHtml(cmd.name)}</span>
+      <span class="command-scope">${escHtml(cmd.scope)}</span>
+    `;
+    item.onclick = () => { switchTab('commands'); openFile(cmd.filePath, cmd.name + '.md'); };
+    el.appendChild(item);
+  }
+}
+
+// ── Commands: middle panel ─────────────────────────────────────────────────
+function renderCommandsMiddlePanel() {
+  const el = document.getElementById('file-list');
+  el.innerHTML = '';
+
+  const hdr = document.createElement('div');
+  hdr.className = 'file-list-header';
+  hdr.innerHTML = `<span>${commands.length} command${commands.length !== 1 ? 's' : ''}</span>`;
+  const newBtn = document.createElement('button');
+  newBtn.className = 'btn';
+  newBtn.textContent = '+ New';
+  newBtn.onclick = () => openNewCommandModal();
+  hdr.appendChild(newBtn);
+  el.appendChild(hdr);
+
+  if (commands.length === 0) {
+    el.innerHTML += `<div class="empty" style="flex:1">${ICON_COMMAND}No commands yet</div>`;
+    return;
+  }
+
+  for (const cmd of commands) {
+    const item = document.createElement('div');
+    item.className = 'command-detail' + (activeFilePath === cmd.filePath ? ' active' : '');
+    item.innerHTML = `
+      <div class="command-detail-name">/${escHtml(cmd.name)}</div>
+      <div class="command-detail-scope">${escHtml(cmd.scopeLabel)} · ${escHtml(cmd.filePath)}</div>
+      <div class="command-detail-desc">${escHtml(cmd.description)}</div>
+    `;
+    item.onclick = () => openFile(cmd.filePath, cmd.name + '.md');
+    el.appendChild(item);
+  }
+}
+
+// ── Editor mode: 'preview' | 'edit' ───────────────────────────────────────
+let editorMode = 'preview';
+let activeFileContent = '';
+
+// ── Open file ──────────────────────────────────────────────────────────────
+async function openFile(filePath, filename) {
+  if (modified && activeFilePath) {
+    if (!confirm('You have unsaved changes. Discard?')) return;
+  }
+  activeFilePath = filePath;
+  modified = false;
+
+  hideConvStatsPanel();
+  const { content } = await api('GET', `/api/file?path=${encodeURIComponent(filePath)}`);
+  activeFileContent = content;
+  renderEditor(filePath, filename, content);
+
+  if (currentTab === 'commands') {
+    renderCommandsMiddlePanel();
+    renderCommandSidebar();
+  }
+}
+
+// ── Render editor ──────────────────────────────────────────────────────────
+function renderEditor(filePath, filename, content) {
+  const pane = document.getElementById('editor-pane');
+  pane.innerHTML = '';
+
+  // Toolbar
+  const toolbar = document.createElement('div');
+  toolbar.className = 'editor-toolbar';
+
+  const fnEl = document.createElement('div');
+  fnEl.className = 'editor-filename';
+  fnEl.id = 'editor-filename';
+  fnEl.textContent = filePath;
+
+  // Mode toggle
+  const toggle = document.createElement('div');
+  toggle.className = 'mode-toggle';
+  const previewBtn = document.createElement('button');
+  previewBtn.className = 'mode-btn' + (editorMode === 'preview' ? ' active' : '');
+  previewBtn.textContent = 'Preview';
+  previewBtn.onclick = () => setEditorMode('preview', filePath, filename);
+  const editBtn = document.createElement('button');
+  editBtn.className = 'mode-btn' + (editorMode === 'edit' ? ' active' : '');
+  editBtn.textContent = 'Edit';
+  editBtn.onclick = () => setEditorMode('edit', filePath, filename);
+  toggle.appendChild(previewBtn);
+  toggle.appendChild(editBtn);
+
+  const delBtn = document.createElement('button');
+  delBtn.className = 'btn-danger';
+  delBtn.textContent = 'Delete';
+  delBtn.onclick = () => deleteFile(filePath);
+
+  toolbar.appendChild(fnEl);
+  toolbar.appendChild(toggle);
+  if (editorMode === 'edit') {
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'btn';
+    saveBtn.textContent = 'Save';
+    saveBtn.id = 'save-btn';
+    saveBtn.onclick = () => saveFile();
+    toolbar.appendChild(saveBtn);
+  }
+  toolbar.appendChild(delBtn);
+  pane.appendChild(toolbar);
+
+  if (editorMode === 'preview') {
+    renderPreview(pane, content);
+  } else {
+    renderTextarea(pane, content);
+  }
+}
+
+function setEditorMode(mode, filePath, filename) {
+  // If switching away from edit, capture current textarea content
+  if (editorMode === 'edit' && mode === 'preview') {
+    const ta = document.querySelector('textarea');
+    if (ta) activeFileContent = ta.value;
+  }
+  editorMode = mode;
+  renderEditor(filePath, filename, activeFileContent);
+}
+
+// ── Preview renderer ───────────────────────────────────────────────────────
+function renderPreview(pane, content) {
+  const scroll = document.createElement('div');
+  scroll.className = 'md-preview-scroll';
+
+  const div = document.createElement('div');
+  div.className = 'md-preview';
+
+  // Extract and render frontmatter separately
+  const fmMatch = content.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
+  if (fmMatch) {
+    const fmBlock = document.createElement('div');
+    fmBlock.className = 'md-frontmatter';
+    for (const line of fmMatch[1].split('\n')) {
+      const idx = line.indexOf(':');
+      if (idx === -1) continue;
+      const key = line.slice(0, idx).trim();
+      const val = line.slice(idx + 1).trim();
+      const row = document.createElement('div');
+      row.className = 'md-frontmatter-row';
+      row.innerHTML = `<span class="md-frontmatter-key">${escHtml(key)}</span><span class="md-frontmatter-val">${escHtml(val)}</span>`;
+      fmBlock.appendChild(row);
+    }
+    div.appendChild(fmBlock);
+    div.innerHTML += marked.parse(fmMatch[2]);
+  } else {
+    div.innerHTML = marked.parse(content);
+  }
+
+  scroll.appendChild(div);
+  pane.appendChild(scroll);
+}
+
+// ── Textarea editor ────────────────────────────────────────────────────────
+function renderTextarea(pane, content) {
+  const ta = document.createElement('textarea');
+  ta.value = content;
+  ta.spellcheck = false;
+  ta.oninput = () => {
+    modified = true;
+    activeFileContent = ta.value;
+    document.getElementById('editor-filename').classList.add('modified');
+    clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(saveFile, 2000);
+  };
+  ta.onkeydown = e => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+      e.preventDefault();
+      saveFile();
+    }
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const s = ta.selectionStart, end = ta.selectionEnd;
+      ta.value = ta.value.slice(0, s) + '  ' + ta.value.slice(end);
+      ta.selectionStart = ta.selectionEnd = s + 2;
+    }
+  };
+  pane.appendChild(ta);
+  ta.focus();
+}
+
+// ── Save ───────────────────────────────────────────────────────────────────
+async function saveFile() {
+  if (!activeFilePath) return;
+  clearTimeout(saveTimeout);
+  // Capture latest textarea value if in edit mode
+  const ta = document.querySelector('textarea');
+  if (ta) activeFileContent = ta.value;
+  await api('PUT', '/api/file', { filePath: activeFilePath, content: activeFileContent });
+  modified = false;
+  document.getElementById('editor-filename')?.classList.remove('modified');
+
+  if (currentTab === 'memory' && activeProjectId) {
+    await selectProject(activeProjectId);
+    projects = await api('GET', '/api/projects');
+    renderProjects();
+  } else if (currentTab === 'commands') {
+    commands = await api('GET', '/api/commands');
+    renderCommandsMiddlePanel();
+    renderCommandSidebar();
+  }
+}
+
+// ── Delete ─────────────────────────────────────────────────────────────────
+async function deleteFile(filePath) {
+  if (!confirm(`Delete ${filePath.split('/').pop()}?`)) return;
+  await api('DELETE', '/api/file', { filePath });
+  activeFilePath = null;
+  modified = false;
+  document.getElementById('editor-pane').innerHTML = '<div class="empty">${ICON_FILE}Select a file to edit</div>';
+
+  if (currentTab === 'memory' && activeProjectId) {
+    await selectProject(activeProjectId);
+  } else if (currentTab === 'commands') {
+    commands = await api('GET', '/api/commands');
+    renderCommandsMiddlePanel();
+    renderCommandSidebar();
+  }
+}
+
+// ── New memory modal ───────────────────────────────────────────────────────
+function openNewFileModal() {
+  document.getElementById('new-file-modal').style.display = 'flex';
+  document.getElementById('nf-filename').focus();
+}
+document.getElementById('nf-cancel').onclick = () => {
+  document.getElementById('new-file-modal').style.display = 'none';
+};
+document.getElementById('nf-create').onclick = async () => {
+  const filename = document.getElementById('nf-filename').value.trim();
+  const name = document.getElementById('nf-name').value.trim();
+  const desc = document.getElementById('nf-desc').value.trim();
+  const type = document.getElementById('nf-type').value;
+  const body = document.getElementById('nf-body').value.trim();
+  if (!filename || !name) { alert('Filename and name are required.'); return; }
+  const content = `---\nname: ${name}\ndescription: ${desc}\ntype: ${type}\n---\n\n${body}\n`;
+  await api('POST', `/api/projects/${activeProjectId}/memories`, { filename, content });
+  document.getElementById('new-file-modal').style.display = 'none';
+  ['nf-filename','nf-name','nf-desc','nf-body'].forEach(id => document.getElementById(id).value = '');
+  await selectProject(activeProjectId);
+};
+document.getElementById('new-file-modal').onclick = e => {
+  if (e.target === e.currentTarget) document.getElementById('new-file-modal').style.display = 'none';
+};
+
+// ── New command modal ──────────────────────────────────────────────────────
+function openNewCommandModal() {
+  document.getElementById('new-command-modal').style.display = 'flex';
+  document.getElementById('nc-name').focus();
+}
+document.getElementById('nc-cancel').onclick = () => {
+  document.getElementById('new-command-modal').style.display = 'none';
+};
+document.getElementById('nc-create').onclick = async () => {
+  const name = document.getElementById('nc-name').value.trim();
+  const body = document.getElementById('nc-body').value.trim();
+  if (!name) { alert('Command name is required.'); return; }
+  await api('POST', '/api/commands', { name, content: body + '\n' });
+  document.getElementById('new-command-modal').style.display = 'none';
+  document.getElementById('nc-name').value = '';
+  document.getElementById('nc-body').value = '';
+  commands = await api('GET', '/api/commands');
+  renderCommandsMiddlePanel();
+  renderCommandSidebar();
+};
+document.getElementById('new-command-modal').onclick = e => {
+  if (e.target === e.currentTarget) document.getElementById('new-command-modal').style.display = 'none';
+};
+
+// ── Search ─────────────────────────────────────────────────────────────────
+let searchDebounce = null;
+const searchInput = document.getElementById('search-input');
+const typeFilter = document.getElementById('type-filter');
+
+searchInput.addEventListener('input', () => {
+  clearTimeout(searchDebounce);
+  searchDebounce = setTimeout(doSearch, 200);
+});
+typeFilter.addEventListener('change', doSearch);
+
+async function doSearch() {
+  const q = searchInput.value.trim();
+  const type = typeFilter.value;
+  const overlay = document.getElementById('search-results');
+  if (!q) { overlay.style.display = 'none'; return; }
+
+  const results = await api('GET', `/api/search?q=${encodeURIComponent(q)}&type=${type}`);
+  overlay.style.display = 'block';
+  overlay.innerHTML = results.length === 0
+    ? '<div style="padding:16px;color:var(--muted);font-size:13px">No results</div>'
+    : results.map(r => `
+      <div class="search-result-item" onclick="jumpToResult('${escAttr(r.filePath)}','${escAttr(r.filename)}','${escAttr(r.projectId)}')">
+        <div class="sr-top">
+          <span class="type-badge type-${r.type}">${r.type}</span>
+          <span class="sr-name">${escHtml(r.name)}</span>
+          <span class="sr-project">${escHtml(r.projectLabel)}</span>
+        </div>
+        <div class="sr-snippet">${escHtml(r.snippet)}</div>
+      </div>
+    `).join('');
+}
+
+async function jumpToResult(filePath, filename, projectId) {
+  document.getElementById('search-results').style.display = 'none';
+  searchInput.value = '';
+  if (activeProjectId !== projectId) {
+    switchTab('memory');
+    await selectProject(projectId);
+  }
+  await openFile(filePath, filename);
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    document.getElementById('search-results').style.display = 'none';
+    searchInput.value = '';
+  }
+});
+
+// ── SSE ────────────────────────────────────────────────────────────────────
+function setupSSE() {
+  const es = new EventSource('/api/events');
+  const dot = document.getElementById('status-dot');
+  es.onopen = () => { dot.style.background = 'var(--ok)'; dot.title = 'Live sync active'; };
+  es.onerror = () => { dot.style.background = 'var(--err)'; dot.title = 'Connection lost'; };
+  es.onmessage = async (e) => {
+    const data = JSON.parse(e.data);
+    if (data.type === 'change') {
+      if (currentTab === 'memory' && activeProjectId) {
+        await selectProject(activeProjectId);
+        projects = await api('GET', '/api/projects');
+        renderProjects();
+      } else if (currentTab === 'commands') {
+        commands = await api('GET', '/api/commands');
+        renderCommandsMiddlePanel();
+        renderCommandSidebar();
+      }
+    }
+  };
+}
+
+// ── Pricing & stats ────────────────────────────────────────────────────────
+
+// Prices from https://platform.claude.com/docs/en/about-claude/pricing (fetched 2026-03-26)
+// More specific entries first (first match wins).
+const PRICING = [
+  { match: 'claude-opus-4-6',   input:  5.00, output: 25.00, cw5m:  6.25, cw1h: 10.00, cr: 0.50 },
+  { match: 'claude-opus-4-5',   input:  5.00, output: 25.00, cw5m:  6.25, cw1h: 10.00, cr: 0.50 },
+  { match: 'claude-opus-4-1',   input: 15.00, output: 75.00, cw5m: 18.75, cw1h: 30.00, cr: 1.50 },
+  { match: 'claude-opus-4',     input: 15.00, output: 75.00, cw5m: 18.75, cw1h: 30.00, cr: 1.50 },
+  { match: 'claude-sonnet-4',   input:  3.00, output: 15.00, cw5m:  3.75, cw1h:  6.00, cr: 0.30 },
+  { match: 'claude-haiku-4-5',  input:  1.00, output:  5.00, cw5m:  1.25, cw1h:  2.00, cr: 0.10 },
+  { match: 'claude-haiku-3-5',  input:  0.80, output:  4.00, cw5m:  1.00, cw1h:  1.60, cr: 0.08 },
+  { match: 'claude-3-5-sonnet', input:  3.00, output: 15.00, cw5m:  3.75, cw1h:  6.00, cr: 0.30 },
+  { match: 'claude-3-opus',     input: 15.00, output: 75.00, cw5m: 18.75, cw1h: 30.00, cr: 1.50 },
+  { match: 'claude-3-sonnet',   input:  3.00, output: 15.00, cw5m:  3.75, cw1h:  6.00, cr: 0.30 },
+  { match: 'claude-3-haiku',    input:  0.25, output:  1.25, cw5m:  0.30, cw1h:  0.50, cr: 0.03 },
+];
+
+function lookupPricing(model) {
+  if (!model) return null;
+  const m = model.toLowerCase();
+  return PRICING.find(p => m.includes(p.match)) || null;
+}
+
+function computeConvStats(messages) {
+  let inp = 0, out = 0, cw5m = 0, cw1h = 0, cr = 0, apiCalls = 0;
+  let model = '';
+  for (const r of messages) {
+    if (r.type !== 'assistant') continue;
+    const usage = r.message?.usage;
+    if (!usage) continue;
+    apiCalls++;
+    if (r.message?.model && !model) model = r.message.model;
+    inp  += usage.input_tokens || 0;
+    out  += usage.output_tokens || 0;
+    cr   += usage.cache_read_input_tokens || 0;
+    const cc = usage.cache_creation || {};
+    const got5m = cc.ephemeral_5m_input_tokens || 0;
+    const got1h = cc.ephemeral_1h_input_tokens || 0;
+    if (got5m || got1h) {
+      cw5m += got5m;
+      cw1h += got1h;
+    } else {
+      // Older records without breakdown: assume 1h (most common in Claude Code)
+      cw1h += usage.cache_creation_input_tokens || 0;
+    }
+  }
+
+  const p = lookupPricing(model);
+  const M = 1_000_000;
+  let cost = null, costInp = null, costOut = null, costCw = null, costCr = null;
+  let costNoCaching = null;
+  if (p) {
+    costInp  = inp   / M * p.input;
+    costOut  = out   / M * p.output;
+    costCw   = (cw5m / M * p.cw5m) + (cw1h / M * p.cw1h);
+    costCr   = cr    / M * p.cr;
+    cost     = costInp + costOut + costCw + costCr;
+    costNoCaching = (inp + cw5m + cw1h + cr) / M * p.input + out / M * p.output;
+  }
+
+  return { inp, out, cw5m, cw1h, cr, model, apiCalls, cost, costInp, costOut, costCw, costCr, costNoCaching };
+}
+
+function fmtTok(n) {
+  if (n >= 1e9) return (n / 1e9).toFixed(2) + 'B';
+  if (n >= 1e6) return (n / 1e6).toFixed(2) + 'M';
+  if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+  return n.toString();
+}
+
+function fmtCost(n) {
+  if (n == null) return '—';
+  if (n === 0)   return '$0.00';
+  if (n < 0.001) return '<$0.001';
+  if (n < 1)     return '$' + n.toFixed(4);
+  return '$' + n.toFixed(2);
+}
+
+function renderStatsTab(container, messages, conv) {
+  const s = computeConvStats(messages);
+
+  const savedAbs = (s.costNoCaching != null && s.cost != null) ? s.costNoCaching - s.cost : null;
+  const savedPct = (savedAbs != null && s.costNoCaching > 0) ? savedAbs / s.costNoCaching * 100 : 0;
+
+  const el = document.createElement('div');
+  el.className = 'stats-scroll';
+
+  // ── Cost summary ──
+  const pricingNote = lookupPricing(s.model) ? '' : ' <span style="color:var(--warn);font-size:10px">(unknown model pricing)</span>';
+  el.innerHTML += `
+    <div class="stats-card">
+      <div class="stats-card-title">Estimated Cost${pricingNote}</div>
+      <div class="cost-total">${fmtCost(s.cost)}</div>
+      <div class="cost-chips">
+        <span class="cost-chip">Input <strong>${fmtCost(s.costInp)}</strong></span>
+        <span class="cost-chip">Output <strong>${fmtCost(s.costOut)}</strong></span>
+        <span class="cost-chip">Cache write <strong>${fmtCost(s.costCw)}</strong></span>
+        <span class="cost-chip">Cache read <strong>${fmtCost(s.costCr)}</strong></span>
+      </div>
+    </div>
+  `;
+
+  // ── Token breakdown ──
+  const rows = [
+    { label: 'Input (fresh)',   tok: s.inp,  cost: s.costInp, color: '#6366f1' },
+    { label: 'Cache write 5m', tok: s.cw5m, cost: s.costCw != null ? s.cw5m / 1e6 * (lookupPricing(s.model)?.cw5m || 0) : null, color: '#f59e0b' },
+    { label: 'Cache write 1h', tok: s.cw1h, cost: s.costCw != null ? s.cw1h / 1e6 * (lookupPricing(s.model)?.cw1h || 0) : null, color: '#f97316' },
+    { label: 'Cache read',     tok: s.cr,   cost: s.costCr,  color: '#22c55e' },
+    { label: 'Output',         tok: s.out,  cost: s.costOut, color: '#3b82f6' },
+  ].filter(r => r.tok > 0);
+
+  const totalTok = rows.reduce((sum, r) => sum + r.tok, 0) || 1;
+
+  const barSegs = rows.map(r =>
+    `<div class="token-bar-seg" style="width:${(r.tok / totalTok * 100).toFixed(2)}%;background:${r.color}" title="${r.label}: ${fmtTok(r.tok)}"></div>`
+  ).join('');
+
+  const tableRows = rows.map(r => `
+    <tr>
+      <td><span class="tok-dot" style="background:${r.color}"></span>${r.label}</td>
+      <td>${fmtTok(r.tok)}</td>
+      <td>${fmtCost(r.cost)}</td>
+    </tr>
+  `).join('');
+
+  el.innerHTML += `
+    <div class="stats-card">
+      <div class="stats-card-title">Token Breakdown</div>
+      <div class="token-bar">${barSegs}</div>
+      <table class="tok-table">
+        <thead><tr><th>Type</th><th>Tokens</th><th>Cost</th></tr></thead>
+        <tbody>
+          ${tableRows}
+          <tr class="tok-total">
+            <td>Total</td>
+            <td>${fmtTok(totalTok)}</td>
+            <td>${fmtCost(s.cost)}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  // ── Cache savings ──
+  if (savedAbs != null && savedAbs > 0.0001) {
+    el.innerHTML += `
+      <div class="stats-card">
+        <div class="stats-card-title">Cache Savings</div>
+        <div class="savings-labels">
+          <span>Actual: <strong style="color:var(--text)">${fmtCost(s.cost)}</strong></span>
+          <span>Saved: <strong>${fmtCost(savedAbs)}</strong> (${savedPct.toFixed(0)}%)</span>
+        </div>
+        <div class="savings-bar-track">
+          <div class="savings-bar-fill" style="width:${Math.min(savedPct, 100).toFixed(1)}%"></div>
+        </div>
+        <div style="font-size:11px;color:var(--muted)">Without caching would cost ${fmtCost(s.costNoCaching)}</div>
+      </div>
+    `;
+  }
+
+  // ── Details ──
+  el.innerHTML += `
+    <div class="stats-card">
+      <div class="stats-card-title">Details</div>
+      <div class="stats-meta-row"><span class="label">Model</span><span>${escHtml(s.model || conv.model || '—')}</span></div>
+      <div class="stats-meta-row"><span class="label">API calls</span><span>${s.apiCalls}</span></div>
+      <div class="stats-meta-row"><span class="label">Started</span><span>${conv.timestamp ? new Date(conv.timestamp).toLocaleString() : '—'}</span></div>
+      <div class="stats-meta-row"><span class="label">File size</span><span>${formatBytes(conv.size)}</span></div>
+    </div>
+  `;
+
+  container.appendChild(el);
+}
+
+function showConvStatsPanel(messages, conv) {
+  const panel = document.getElementById('conv-stats-panel');
+  panel.innerHTML = '';
+  panel.classList.add('visible');
+  document.querySelector('.layout').classList.add('has-stats-panel');
+  document.getElementById('stats-resize-handle').style.display = '';
+  applyGridCols();
+  const hdr = document.createElement('div');
+  hdr.className = 'conv-stats-panel-header';
+  hdr.textContent = 'Cost & Tokens';
+  panel.appendChild(hdr);
+  renderStatsTab(panel, messages, conv);
+}
+
+function hideConvStatsPanel() {
+  const panel = document.getElementById('conv-stats-panel');
+  panel.classList.remove('visible');
+  panel.innerHTML = '';
+  document.querySelector('.layout').classList.remove('has-stats-panel');
+  document.getElementById('stats-resize-handle').style.display = 'none';
+  applyGridCols();
+}
+
+// ── Conversation viewer ────────────────────────────────────────────────────
+async function openConversation(conv) {
+  activeConvPath = conv.filePath;
+  activeFilePath = null;
+  modified = false;
+
+  // Highlight in list
+  document.querySelectorAll('.conv-item').forEach(el => el.classList.remove('active'));
+  event?.currentTarget?.classList.add('active');
+
+  const pane = document.getElementById('editor-pane');
+  pane.innerHTML = `<div class="empty">${ICON_FILE}Loading…</div>`;
+
+  const messages = await api('GET', `/api/conversation?path=${encodeURIComponent(conv.filePath)}`);
+  renderChatView(pane, conv, messages);
+}
+
+function renderChatView(pane, conv, messages) {
+  pane.innerHTML = '';
+
+  const toolbar = document.createElement('div');
+  toolbar.className = 'editor-toolbar';
+  const userTurns = messages.filter(m => m.type === 'user' && !m.isMeta).length;
+  toolbar.innerHTML = `
+    <div class="editor-filename">${escHtml(conv.filePath)}</div>
+    <span style="font-size:11px;color:var(--muted)">${userTurns} turns · ${escHtml(conv.model || '')}</span>
+    <button class="stats-toggle-btn${statsPanelOpen ? ' active' : ''}" id="stats-toggle-btn">Cost & Tokens</button>
+  `;
+  pane.appendChild(toolbar);
+
+  toolbar.querySelector('#stats-toggle-btn').addEventListener('click', () => {
+    statsPanelOpen = !statsPanelOpen;
+    toolbar.querySelector('#stats-toggle-btn').classList.toggle('active', statsPanelOpen);
+    if (statsPanelOpen) showConvStatsPanel(messages, conv);
+    else hideConvStatsPanel();
+  });
+
+  const scroll = document.createElement('div');
+  scroll.className = 'chat-scroll';
+  renderChatMessages(scroll, messages);
+  pane.appendChild(scroll);
+  scroll.scrollTop = scroll.scrollHeight;
+
+  if (statsPanelOpen) showConvStatsPanel(messages, conv);
+  else hideConvStatsPanel();
+}
+
+function renderChatMessages(scroll, messages) {
+  for (const record of messages) {
+    const isUser = record.type === 'user';
+    const turn = document.createElement('div');
+    turn.className = 'chat-turn';
+
+    const roleEl = document.createElement('div');
+    roleEl.className = 'chat-role';
+    roleEl.textContent = isUser ? 'You' : 'Claude';
+    turn.appendChild(roleEl);
+
+    const bubble = document.createElement('div');
+    bubble.className = `chat-bubble ${isUser ? 'chat-bubble-user' : 'chat-bubble-assistant'}`;
+
+    const content = record.message?.content;
+    if (typeof content === 'string') {
+      bubble.innerHTML = isUser ? `<p>${escHtml(content)}</p>` : marked.parse(content);
+    } else if (Array.isArray(content)) {
+      for (const block of content) {
+        if (block.type === 'text') {
+          const d = document.createElement('div');
+          d.className = 'md-preview';
+          d.innerHTML = marked.parse(block.text || '');
+          bubble.appendChild(d);
+        } else if (block.type === 'tool_use') {
+          const t = document.createElement('div');
+          t.className = 'chat-tool';
+          t.textContent = `⚙ ${block.name}`;
+          t.title = JSON.stringify(block.input || {}, null, 2);
+          bubble.appendChild(t);
+        } else if (block.type === 'tool_result') {
+          // skip
+        }
+      }
+    }
+
+    if (!bubble.innerHTML.trim()) continue;
+    turn.appendChild(bubble);
+
+    const meta = document.createElement('div');
+    meta.className = 'chat-meta';
+    meta.textContent = record.timestamp ? new Date(record.timestamp).toLocaleString() : '';
+    turn.appendChild(meta);
+
+    scroll.appendChild(turn);
+  }
+}
+
+// ── Utils ──────────────────────────────────────────────────────────────────
+function relativeTime(mtime) {
+  const diff = Date.now() - new Date(mtime).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 30) return `${days}d ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}mo ago`;
+  return `${Math.floor(months / 12)}y ago`;
+}
+
+function formatBytes(b) {
+  if (b < 1024) return b + ' B';
+  if (b < 1048576) return (b / 1024).toFixed(0) + ' KB';
+  return (b / 1048576).toFixed(1) + ' MB';
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function escAttr(s) {
+  return String(s).replace(/'/g,"\\'");
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+boot();
+</script>
+</body>
+</html>
