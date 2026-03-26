@@ -112,19 +112,36 @@
     }
     .resize-handle {
       background: var(--border);
-      cursor: col-resize;
       position: relative;
       z-index: 20;
-      transition: background 0.15s;
       flex-shrink: 0;
+      transition: background 0.15s;
     }
-    .resize-handle::after {
-      content: '';
+    .resize-handle.dragging { background: var(--accent); }
+    .resize-grip {
       position: absolute;
-      top: 0; bottom: 0;
-      left: -4px; right: -4px;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 16px;
+      height: 32px;
+      cursor: col-resize;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      font-size: 10px;
+      letter-spacing: -1px;
+      transition: color 0.15s, background 0.15s;
+      z-index: 21;
     }
-    .resize-handle:hover, .resize-handle.dragging { background: var(--accent); }
+    .resize-grip::before {
+      content: '⋮';
+      line-height: 1;
+    }
+    .resize-grip:hover { color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--bg)); }
+    .resize-handle.dragging .resize-grip { color: var(--accent); }
 
     /* ── Sidebar ── */
     .sidebar {
@@ -467,12 +484,19 @@
     }
 
     /* ── File list ── */
+    .file-list-col {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
     .file-list {
+      flex: 1;
       overflow-y: auto;
       display: flex;
       flex-direction: column;
-      border-top: 1px solid var(--border);
-      border-bottom: 1px solid var(--border);
+      min-height: 0;
     }
     .file-list-header {
       display: flex;
@@ -485,7 +509,6 @@
     }
     .file-list-header span { font-size: 11px; color: var(--muted); flex: 1; }
     .file-list-footer {
-      margin-top: auto;
       padding: 7px 12px;
       font-size: 11px;
       color: var(--muted);
@@ -495,6 +518,12 @@
       flex-direction: column;
       gap: 3px;
     }
+    .file-list-footer-path-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+    }
     .file-list-footer-path {
       font-size: 10px;
       color: var(--muted);
@@ -503,7 +532,21 @@
       text-overflow: ellipsis;
       white-space: nowrap;
       font-family: monospace;
+      flex: 1;
     }
+    .copy-path-btn {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--muted);
+      font-size: 12px;
+      padding: 1px 5px;
+      cursor: pointer;
+      flex-shrink: 0;
+      line-height: 1.4;
+      transition: all 0.15s;
+    }
+    .copy-path-btn:hover { color: var(--text); border-color: var(--muted); }
     .reload-btn {
       background: none;
       border: 1px solid var(--border);
@@ -947,21 +990,24 @@
     </div>
   </div>
 
-  <div class="resize-handle" data-col="sidebar"></div>
+  <div class="resize-handle" data-col="sidebar"><div class="resize-grip"></div></div>
 
   <!-- Middle: file list OR command list -->
-  <div class="file-list" id="file-list">
-    <div class="empty">${ICON_FOLDER}Select a project</div>
+  <div class="file-list-col">
+    <div class="file-list" id="file-list">
+      <div class="empty">Select a project</div>
+    </div>
+    <div class="file-list-footer" id="file-list-footer"></div>
   </div>
 
-  <div class="resize-handle" data-col="filelist"></div>
+  <div class="resize-handle" data-col="filelist"><div class="resize-grip"></div></div>
 
   <!-- Editor pane -->
   <div class="editor-pane" id="editor-pane">
-    <div class="empty">${ICON_FILE}Select a file to edit</div>
+    <div class="empty">Select a file to edit</div>
   </div>
 
-  <div class="resize-handle" data-col="stats" id="stats-resize-handle" style="display:none"></div>
+  <div class="resize-handle" data-col="stats" id="stats-resize-handle" style="display:none"><div class="resize-grip"></div></div>
 
   <!-- Conversation stats panel (right side, only shown for chat files) -->
   <div class="conv-stats-panel" id="conv-stats-panel"></div>
@@ -1055,7 +1101,9 @@ function applyGridCols() {
 }
 
 document.addEventListener('mousedown', e => {
-  const handle = e.target.closest('.resize-handle');
+  const grip = e.target.closest('.resize-grip');
+  if (!grip) return;
+  const handle = grip.closest('.resize-handle');
   if (!handle) return;
   e.preventDefault();
   const col = handle.dataset.col;
@@ -1136,7 +1184,7 @@ function switchTab(tab) {
     if (activeProjectId) {
       selectProject(activeProjectId);
     } else {
-      document.getElementById('file-list').innerHTML = '<div class="empty">${ICON_FOLDER}Select a project</div>';
+      document.getElementById('file-list').innerHTML = `<div class="empty">${ICON_FOLDER}Select a project</div>`;
     }
   }
 }
@@ -1599,20 +1647,34 @@ function renderFileList(proj, files, health, conversations = [], mdFiles = []) {
     el.appendChild(hp);
   }
 
-  // Count footer
-  const footer = document.createElement('div');
-  footer.className = 'file-list-footer';
+  // Count footer (rendered outside scroll area so it sticks to bottom)
+  const footerEl = document.getElementById('file-list-footer');
+  const footer = footerEl || document.createElement('div');
+  footer.innerHTML = '';
   const countSpan = document.createElement('span');
   countSpan.textContent = countParts.join(' · ') || 'Nothing selected';
   footer.appendChild(countSpan);
   if (proj && proj.path) {
+    const pathRow = document.createElement('div');
+    pathRow.className = 'file-list-footer-path-row';
     const pathSpan = document.createElement('span');
     pathSpan.className = 'file-list-footer-path';
     pathSpan.textContent = proj.path;
     pathSpan.title = proj.path;
-    footer.appendChild(pathSpan);
+    pathRow.appendChild(pathSpan);
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'copy-path-btn';
+    copyBtn.title = 'Copy path';
+    copyBtn.textContent = '⎘';
+    copyBtn.onclick = async () => {
+      await navigator.clipboard.writeText(proj.path);
+      copyBtn.textContent = '✓';
+      setTimeout(() => { copyBtn.textContent = '⎘'; }, 1200);
+    };
+    pathRow.appendChild(copyBtn);
+    footer.appendChild(pathRow);
   }
-  el.appendChild(footer);
+  if (!footerEl) el.appendChild(footer);
 }
 
 // ── Commands: sidebar ──────────────────────────────────────────────────────
@@ -1719,11 +1781,6 @@ function renderEditor(filePath, filename, content) {
   toggle.appendChild(previewBtn);
   toggle.appendChild(editBtn);
 
-  const delBtn = document.createElement('button');
-  delBtn.className = 'btn-danger';
-  delBtn.textContent = 'Delete';
-  delBtn.onclick = () => deleteFile(filePath);
-
   toolbar.appendChild(fnEl);
   toolbar.appendChild(toggle);
   if (editorMode === 'edit') {
@@ -1734,7 +1791,6 @@ function renderEditor(filePath, filename, content) {
     saveBtn.onclick = () => saveFile();
     toolbar.appendChild(saveBtn);
   }
-  toolbar.appendChild(delBtn);
   pane.appendChild(toolbar);
 
   if (editorMode === 'preview') {
@@ -1843,7 +1899,7 @@ async function deleteFile(filePath) {
   await api('DELETE', '/api/file', { filePath });
   activeFilePath = null;
   modified = false;
-  document.getElementById('editor-pane').innerHTML = '<div class="empty">${ICON_FILE}Select a file to edit</div>';
+  document.getElementById('editor-pane').innerHTML = `<div class="empty">${ICON_FILE}Select a file to edit</div>`;
 
   if (currentTab === 'memory' && activeProjectId) {
     await selectProject(activeProjectId);
