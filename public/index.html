@@ -5,935 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Claude Memory GUI</title>
   <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    :root {
-      --bg: #0f0f0f;
-      --surface: #1a1a1a;
-      --surface2: #222222;
-      --border: #2e2e2e;
-      --text: #e0e0e0;
-      --muted: #777;
-      --accent: #d97706;
-      --accent2: #b45309;
-      --err: #ef4444;
-      --warn: #f59e0b;
-      --ok: #22c55e;
-      --user: #6366f1;
-      --feedback: #ec4899;
-      --project: #14b8a6;
-      --reference: #8b5cf6;
-      --claude_md: #f97316;
-      --command: #38bdf8;
-      --unknown: #64748b;
-      --preview-code-bg: #1e1e1e;
-      --preview-blockquote: #333;
-      --preview-link: #60a5fa;
-    }
-
-    @media (prefers-color-scheme: light) {
-      :root {
-        --bg: #ffffff;
-        --surface: #f4f4f5;
-        --surface2: #e4e4e7;
-        --border: #d4d4d8;
-        --text: #18181b;
-        --muted: #71717a;
-        --preview-code-bg: #f0f0f0;
-        --preview-blockquote: #e4e4e7;
-        --preview-link: #2563eb;
-      }
-    }
-
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
-    /* ── Header ── */
-    header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 10px 16px;
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      flex-shrink: 0;
-    }
-    header h1 { font-size: 15px; font-weight: 600; color: var(--accent); letter-spacing: 0.02em; }
-    #search-bar {
-      flex: 1;
-      max-width: 420px;
-      display: flex;
-      gap: 6px;
-    }
-    #search-input {
-      flex: 1;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      color: var(--text);
-      padding: 5px 10px;
-      border-radius: 5px;
-      font-size: 13px;
-    }
-    #search-input:focus { outline: 1px solid var(--accent); }
-    select {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      color: var(--text);
-      padding: 5px 8px;
-      border-radius: 5px;
-      font-size: 13px;
-      cursor: pointer;
-    }
-    #status-dot {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      background: var(--ok);
-      margin-left: auto;
-      flex-shrink: 0;
-    }
-
-    /* ── Layout ── */
-    .layout {
-      display: grid;
-      grid-template-columns: 220px 5px 280px 5px 1fr;
-      flex: 1;
-      overflow: hidden;
-    }
-    .layout.has-stats-panel {
-      grid-template-columns: 220px 5px 280px 5px 1fr 5px 405px;
-    }
-    .resize-handle {
-      background: var(--border);
-      position: relative;
-      z-index: 20;
-      flex-shrink: 0;
-      transition: background 0.15s;
-    }
-    .resize-handle.dragging { background: var(--accent); }
-    .resize-grip {
-      position: absolute;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 16px;
-      height: 32px;
-      cursor: col-resize;
-      border-radius: 4px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--muted);
-      font-size: 10px;
-      letter-spacing: -1px;
-      transition: color 0.15s, background 0.15s;
-      z-index: 21;
-    }
-    .resize-grip::before {
-      content: '⋮';
-      line-height: 1;
-    }
-    .resize-grip:hover { color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--bg)); }
-    .resize-handle.dragging .resize-grip { color: var(--accent); }
-
-    /* ── Sidebar ── */
-    .sidebar {
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-    }
-
-    /* Tab switcher inside sidebar */
-    .sidebar-tabs {
-      display: flex;
-      border-bottom: 1px solid var(--border);
-      flex-shrink: 0;
-    }
-    .sidebar-tab {
-      flex: 1;
-      padding: 8px 4px;
-      font-size: 11px;
-      font-weight: 600;
-      text-align: center;
-      cursor: pointer;
-      color: var(--muted);
-      border-bottom: 2px solid transparent;
-      transition: color 0.1s;
-      letter-spacing: 0.03em;
-    }
-    .sidebar-tab:hover { color: var(--text); }
-    .sidebar-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
-
-    .sidebar-section { flex: 1; display: flex; flex-direction: column; min-height: 0; padding: 6px 0; }
-    #project-list { flex: 1; overflow-y: auto; min-height: 0; }
-    .sidebar-section.hidden { display: none; }
-
-    .sidebar-title {
-      font-size: 10px;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--muted);
-      padding: 6px 12px 4px;
-    }
-    .tree-footer {
-      padding: 7px 12px;
-      border-top: 1px solid var(--border);
-      font-size: 10px;
-      color: var(--muted);
-      display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
-      flex-shrink: 0;
-    }
-    .tree-footer-item {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-    .tree-footer-dot {
-      width: 5px; height: 5px;
-      border-radius: 1px;
-      flex-shrink: 0;
-    }
-
-    /* ── Project tree ── */
-    .tree-folder {
-      user-select: none;
-    }
-    .tree-folder-row {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      padding: 4px 8px 4px 0;
-      cursor: pointer;
-      font-size: 11px;
-      color: var(--muted);
-      border-left: 2px solid transparent;
-    }
-    .tree-folder-row:hover { color: var(--text); background: var(--surface2); }
-    .tree-chevron {
-      flex-shrink: 0;
-      width: 14px;
-      text-align: center;
-      font-size: 9px;
-      transition: transform 0.15s;
-      color: var(--muted);
-    }
-    .tree-chevron.open { transform: rotate(90deg); }
-    .tree-folder-row.active-folder { border-left-color: var(--accent); color: var(--text); background: var(--surface2); }
-    .tree-folder-label {
-      flex: 1;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      font-weight: 500;
-    }
-    .tree-children { display: none; }
-    .tree-children.open {
-      display: block;
-      position: relative;
-    }
-    .tree-children.open::before {
-      content: '';
-      position: absolute;
-      left: var(--guide-x, 19px);
-      top: 2px;
-      bottom: 6px;
-      width: 1px;
-      background: var(--border);
-      pointer-events: none;
-    }
-
-    .project-item {
-      padding: 5px 8px 5px 0;
-      cursor: pointer;
-      font-size: 12px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      border-left: 2px solid transparent;
-      color: var(--muted);
-      transition: color 0.1s, background 0.1s;
-    }
-    .project-item:hover { background: var(--surface2); color: var(--text); }
-    .project-item.active { border-left-color: var(--accent); color: var(--text); background: var(--surface2); }
-    .project-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .project-count {
-      font-size: 10px;
-      background: var(--border);
-      padding: 1px 5px;
-      border-radius: 10px;
-      color: var(--muted);
-      flex-shrink: 0;
-    }
-
-    /* ── Filter bar ── */
-    .filter-bar {
-      display: flex;
-      align-items: center;
-      padding: 8px 8px 4px;
-      gap: 2px;
-    }
-    .filter-item {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 5px;
-      padding: 5px 6px;
-      font-size: 11px;
-      font-weight: 500;
-      border-radius: 5px;
-      border: none;
-      background: none;
-      cursor: pointer;
-      color: var(--muted);
-      transition: all 0.15s;
-      white-space: nowrap;
-    }
-    .filter-item:hover { color: var(--text); background: var(--surface2); }
-    .filter-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 2px;
-      flex-shrink: 0;
-      opacity: 0.35;
-      transition: opacity 0.15s;
-    }
-    #fp-memory   .filter-dot { background: var(--user); }
-    #fp-claudemd .filter-dot { background: var(--claude_md); }
-    #fp-conversations .filter-dot { background: var(--project); }
-    #fp-memory.active    { color: var(--user);    background: color-mix(in srgb, var(--user) 12%, var(--bg)); }
-    #fp-claudemd.active  { color: var(--claude_md); background: color-mix(in srgb, var(--claude_md) 10%, var(--bg)); }
-    #fp-conversations.active { color: var(--project); background: color-mix(in srgb, var(--project) 10%, var(--bg)); }
-    .filter-item.active .filter-dot { opacity: 1; }
-
-    /* ── Conversation list ── */
-    .conv-item.active { border-left-color: var(--accent); background: var(--surface2); }
-    .section-divider { font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); padding: 8px 12px 4px; border-top: 1px solid var(--border); margin-top: 4px; cursor: pointer; display: flex; align-items: center; gap: 5px; user-select: none; }
-    .section-divider:first-child { border-top: none; margin-top: 0; }
-    .section-divider:hover { color: var(--text); }
-    .section-chevron { font-size: 9px; flex-shrink: 0; }
-    .section-body { }
-    .section-body.collapsed { display: none; }
-
-    /* ── Chat view ── */
-    .chat-scroll {
-      flex: 1;
-      overflow-y: auto;
-      background: var(--preview-code-bg);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 24px 16px;
-      gap: 16px;
-    }
-    .chat-turn {
-      width: 100%;
-      max-width: 860px;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-    .chat-role {
-      font-size: 10px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.07em;
-      color: var(--muted);
-      padding: 0 4px;
-    }
-    .chat-bubble {
-      border-radius: 8px;
-      padding: 12px 16px;
-      font-size: 13px;
-      line-height: 1.65;
-    }
-    .chat-bubble-user {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      color: var(--text);
-    }
-    .chat-bubble-assistant {
-      background: color-mix(in srgb, var(--accent) 8%, var(--surface));
-      border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--border));
-      color: var(--text);
-    }
-    .chat-bubble .md-preview { padding: 0; background: none; border: none; border-radius: 0; max-width: none; font-size: 13px; }
-    .chat-tool {
-      font-size: 11px;
-      color: var(--muted);
-      font-family: monospace;
-      background: var(--preview-code-bg);
-      border: 1px solid var(--border);
-      border-radius: 5px;
-      padding: 5px 10px;
-      margin: 4px 0;
-      cursor: default;
-    }
-    .chat-meta { font-size: 10px; color: var(--muted); opacity: 0.6; padding: 0 4px; }
-
-    /* ── Conversation stats right panel ── */
-    .conv-stats-panel {
-      display: none;
-      flex-direction: column;
-      min-width: 0;
-      border-left: 1px solid var(--border);
-      overflow: hidden;
-      background: var(--surface);
-    }
-    .conv-stats-panel.visible { display: flex; }
-    .stats-toggle-btn {
-      font-size: 11px;
-      padding: 3px 9px;
-      border-radius: 5px;
-      border: 1px solid var(--border);
-      background: none;
-      color: var(--muted);
-      cursor: pointer;
-      white-space: nowrap;
-    }
-    .stats-toggle-btn:hover { color: var(--text); border-color: var(--muted); }
-    .stats-toggle-btn.active { color: var(--project); border-color: color-mix(in srgb, var(--project) 40%, var(--border)); background: color-mix(in srgb, var(--project) 8%, transparent); }
-    .conv-stats-panel-header {
-      padding: 9px 14px;
-      border-bottom: 1px solid var(--border);
-      font-size: 10px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--muted);
-      flex-shrink: 0;
-      background: var(--surface);
-    }
-
-    /* ── Stats tab ── */
-    .stats-scroll { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 14px; background: var(--preview-code-bg); }
-    .stats-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
-    .stats-card-title { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); margin-bottom: 12px; }
-    .cost-total { font-size: 30px; font-weight: 700; color: var(--text); letter-spacing: -0.02em; }
-    .cost-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-    .cost-chip { font-size: 11px; color: var(--muted); background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: 3px 8px; }
-    .cost-chip strong { color: var(--text); font-weight: 600; }
-    .token-bar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; gap: 1px; margin-bottom: 14px; }
-    .token-bar-seg { height: 100%; }
-    .tok-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    .tok-table th { text-align: left; color: var(--muted); font-weight: 500; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; padding-bottom: 8px; }
-    .tok-table th:not(:first-child) { text-align: right; }
-    .tok-table td { padding: 5px 0; border-top: 1px solid var(--border); vertical-align: middle; }
-    .tok-table td:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
-    .tok-table .tok-total td { font-weight: 600; border-top: 2px solid var(--border); padding-top: 8px; }
-    .tok-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
-    .savings-bar-track { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; margin: 8px 0 6px; }
-    .savings-bar-fill { height: 100%; background: var(--ok); border-radius: 3px; }
-    .savings-labels { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
-    .savings-labels strong { color: var(--ok); }
-    .stats-meta-row { display: flex; justify-content: space-between; font-size: 12px; padding: 5px 0; border-top: 1px solid var(--border); }
-    .stats-meta-row:first-child { border-top: none; padding-top: 0; }
-    .stats-meta-row .label { color: var(--muted); }
-
-    /* Sidebar header row with toggle */
-    .sidebar-header-row {
-      display: flex;
-      align-items: center;
-      padding: 6px 12px 4px;
-    }
-    .sidebar-header-row .sidebar-title { padding: 0; flex: 1; }
-    .toggle-empty {
-      font-size: 9px;
-      color: var(--muted);
-      cursor: pointer;
-      border: 1px solid var(--border);
-      border-radius: 3px;
-      padding: 1px 5px;
-      background: none;
-      white-space: nowrap;
-    }
-    .toggle-empty:hover { color: var(--text); border-color: var(--muted); }
-    .toggle-empty.on { color: var(--accent); border-color: var(--accent); }
-
-    /* Commands in sidebar */
-    .command-sidebar-item {
-      padding: 7px 12px;
-      cursor: pointer;
-      font-size: 12px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      border-left: 2px solid transparent;
-      color: var(--muted);
-      transition: color 0.1s, background 0.1s;
-    }
-    .command-sidebar-item:hover { background: var(--surface2); color: var(--text); }
-    .command-sidebar-item.active { border-left-color: var(--command); color: var(--text); background: var(--surface2); }
-    .command-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: monospace; }
-    .command-scope {
-      font-size: 9px;
-      background: var(--border);
-      padding: 1px 5px;
-      border-radius: 10px;
-      color: var(--muted);
-      flex-shrink: 0;
-    }
-
-    /* ── File list ── */
-    .file-list-col {
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      border-top: 1px solid var(--border);
-      border-bottom: 1px solid var(--border);
-    }
-    .file-list {
-      flex: 1;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      min-height: 0;
-    }
-    .file-list-header {
-      display: flex;
-      align-items: center;
-      justify-content: flex-start;
-      padding: 8px 12px;
-      border-bottom: 1px solid var(--border);
-      gap: 6px;
-      flex-shrink: 0;
-    }
-    .file-list-header span { font-size: 11px; color: var(--muted); flex: 1; }
-    .file-list-footer {
-      padding: 7px 12px;
-      font-size: 11px;
-      color: var(--muted);
-      border-top: 1px solid var(--border);
-      flex-shrink: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 3px;
-    }
-    .file-list-footer-path-row {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      min-width: 0;
-    }
-    .file-list-footer-path {
-      font-size: 10px;
-      color: var(--muted);
-      opacity: 0.6;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      font-family: monospace;
-      flex: 1;
-    }
-    .copy-path-btn {
-      background: none;
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      color: var(--muted);
-      font-size: 12px;
-      padding: 1px 5px;
-      cursor: pointer;
-      flex-shrink: 0;
-      line-height: 1.4;
-      transition: all 0.15s;
-    }
-    .copy-path-btn:hover { color: var(--text); border-color: var(--muted); }
-    .reload-btn {
-      background: none;
-      border: 1px solid var(--border);
-      border-radius: 5px;
-      color: var(--muted);
-      padding: 2px 6px;
-      font-size: 13px;
-      cursor: pointer;
-      line-height: 1;
-      transition: all 0.15s;
-      flex-shrink: 0;
-    }
-    .reload-btn:hover { color: var(--text); border-color: var(--muted); }
-    .sort-toggle {
-      display: flex;
-      border: 1px solid var(--border);
-      border-radius: 999px;
-      overflow: hidden;
-      flex-shrink: 0;
-    }
-    .sort-btn {
-      background: none;
-      border: none;
-      color: var(--muted);
-      padding: 2px 9px;
-      font-size: 10px;
-      cursor: pointer;
-      transition: background 0.1s, color 0.1s;
-      white-space: nowrap;
-    }
-    .sort-btn:hover { color: var(--text); }
-    .sort-btn.active { background: var(--surface2); color: var(--text); font-weight: 600; }
-    .group-toggle-btn {
-      background: none;
-      border: 1px solid var(--border);
-      border-radius: 5px;
-      color: var(--muted);
-      padding: 2px 7px;
-      font-size: 10px;
-      cursor: pointer;
-      transition: all 0.15s;
-      white-space: nowrap;
-      flex-shrink: 0;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-    .group-toggle-btn:hover { color: var(--text); border-color: var(--muted); }
-    .group-toggle-btn.on { color: var(--accent); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--bg)); }
-    .group-toggle-btn .gtb-dot {
-      width: 5px; height: 5px; border-radius: 50%;
-      background: currentColor; opacity: 0.7;
-    }
-    .btn {
-      background: var(--accent);
-      color: #000;
-      border: none;
-      padding: 4px 10px;
-      border-radius: 4px;
-      font-size: 11px;
-      font-weight: 600;
-      cursor: pointer;
-    }
-    .btn:hover { background: var(--accent2); }
-    .btn-sm {
-      background: var(--surface2);
-      color: var(--muted);
-      border: 1px solid var(--border);
-      padding: 3px 8px;
-      border-radius: 4px;
-      font-size: 11px;
-      cursor: pointer;
-    }
-    .btn-sm:hover { color: var(--text); }
-    .btn-danger {
-      background: transparent;
-      color: var(--err);
-      border: 1px solid var(--err);
-      padding: 3px 8px;
-      border-radius: 4px;
-      font-size: 11px;
-      cursor: pointer;
-    }
-    .btn-danger:hover { background: var(--err); color: #fff; }
-
-    .file-item {
-      padding: 11px 12px;
-      cursor: pointer;
-      border-left: 2px solid transparent;
-      transition: background 0.1s;
-    }
-    .file-item:hover { background: var(--surface2); }
-    .file-item.active { border-left-color: var(--accent); background: var(--surface2); }
-    .file-item-name {
-      font-size: 12px;
-      font-weight: 500;
-      margin-bottom: 2px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      justify-content: space-between;
-    }
-    .file-item-name-text { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .file-item-desc { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 4px; }
-    .file-item-meta { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); opacity: 0.7; }
-    .file-item-meta span { display: flex; align-items: center; gap: 3px; }
-    .type-badge {
-      font-size: 9px;
-      font-weight: 500;
-      padding: 1px 6px;
-      border-radius: 999px;
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      color: var(--muted);
-      flex-shrink: 0;
-    }
-
-    /* ── Editor pane ── */
-    .editor-pane {
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-    .editor-toolbar {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 12px;
-      border-bottom: 1px solid var(--border);
-      flex-shrink: 0;
-    }
-    .editor-filename {
-      font-size: 12px;
-      color: var(--muted);
-      flex: 1;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      font-family: monospace;
-    }
-    .editor-filename.modified::after { content: ' ●'; color: var(--accent); }
-    .mode-toggle {
-      display: flex;
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      overflow: hidden;
-      flex-shrink: 0;
-    }
-    .mode-btn {
-      background: none;
-      border: none;
-      color: var(--muted);
-      padding: 3px 10px;
-      font-size: 11px;
-      cursor: pointer;
-      transition: background 0.1s, color 0.1s;
-    }
-    .mode-btn:hover { color: var(--text); }
-    .mode-btn.active { background: var(--accent); color: #000; font-weight: 600; }
-    textarea {
-      flex: 1;
-      background: var(--bg);
-      color: var(--text);
-      border: none;
-      resize: none;
-      padding: 16px 24px;
-      font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
-      font-size: 13px;
-      line-height: 1.6;
-      outline: none;
-      tab-size: 2;
-    }
-
-    /* ── Markdown preview ── */
-    .md-preview-scroll {
-      flex: 1;
-      overflow-y: auto;
-      background: var(--preview-code-bg);
-      display: flex;
-      justify-content: center;
-      padding: 32px 16px;
-    }
-    .md-preview {
-      width: 100%;
-      max-width: 900px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 32px 40px;
-      font-size: 14px;
-      line-height: 1.75;
-      color: var(--text);
-      align-self: flex-start;
-    }
-    .md-preview h1, .md-preview h2, .md-preview h3,
-    .md-preview h4, .md-preview h5, .md-preview h6 {
-      margin: 1.4em 0 0.5em;
-      line-height: 1.3;
-      font-weight: 600;
-      color: var(--text);
-    }
-    .md-preview h1 { font-size: 1.6em; border-bottom: 1px solid var(--border); padding-bottom: 0.3em; }
-    .md-preview h2 { font-size: 1.3em; border-bottom: 1px solid var(--border); padding-bottom: 0.2em; }
-    .md-preview h3 { font-size: 1.1em; }
-    .md-preview p { margin: 0.75em 0; }
-    .md-preview a { color: var(--preview-link); text-decoration: underline; }
-    .md-preview ul, .md-preview ol { margin: 0.5em 0 0.5em 1.5em; }
-    .md-preview li { margin: 0.25em 0; }
-    .md-preview li > ul, .md-preview li > ol { margin: 0.1em 0 0.1em 1.2em; }
-    .md-preview code {
-      font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
-      font-size: 0.85em;
-      background: var(--preview-code-bg);
-      padding: 0.15em 0.35em;
-      border-radius: 3px;
-    }
-    .md-preview pre {
-      background: var(--preview-code-bg);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 14px 16px;
-      overflow-x: auto;
-      margin: 1em 0;
-    }
-    .md-preview pre code { background: none; padding: 0; font-size: 0.82em; }
-    .md-preview blockquote {
-      border-left: 3px solid var(--accent);
-      padding: 4px 0 4px 16px;
-      margin: 1em 0;
-      color: var(--muted);
-      background: var(--preview-blockquote);
-      border-radius: 0 4px 4px 0;
-    }
-    .md-preview hr { border: none; border-top: 1px solid var(--border); margin: 1.5em 0; }
-    .md-preview table { border-collapse: collapse; width: 100%; margin: 1em 0; font-size: 0.9em; }
-    .md-preview th, .md-preview td { border: 1px solid var(--border); padding: 6px 12px; text-align: left; }
-    .md-preview th { background: var(--surface); font-weight: 600; }
-    .md-preview tr:nth-child(even) td { background: var(--surface); }
-    /* Frontmatter block styling */
-    .md-frontmatter {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 10px 14px;
-      margin-bottom: 20px;
-      font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
-      font-size: 11px;
-      color: var(--muted);
-    }
-    .md-frontmatter-row { display: flex; gap: 8px; }
-    .md-frontmatter-key { color: var(--accent); font-weight: 600; min-width: 90px; }
-    .md-frontmatter-val { color: var(--text); }
-
-    /* ── Health panel ── */
-    .health-panel {
-      background: var(--surface);
-      border-top: 1px solid var(--border);
-      max-height: 120px;
-      overflow-y: auto;
-      flex-shrink: 0;
-    }
-    .health-item {
-      display: flex;
-      align-items: flex-start;
-      gap: 8px;
-      padding: 6px 12px;
-      font-size: 11px;
-      border-bottom: 1px solid var(--border);
-    }
-    .health-item:last-child { border-bottom: none; }
-    .health-icon { flex-shrink: 0; margin-top: 1px; }
-
-    /* ── Commands panel (middle column when in command mode) ── */
-    .command-detail {
-      padding: 13px 12px;
-      border-bottom: 1px solid var(--border);
-      cursor: pointer;
-      border-left: 2px solid transparent;
-      transition: background 0.1s;
-    }
-    .command-detail:hover { background: var(--surface2); }
-    .command-detail.active { border-left-color: var(--command); background: var(--surface2); }
-    .command-detail-name {
-      font-size: 12px;
-      font-weight: 600;
-      font-family: monospace;
-      color: var(--command);
-      margin-bottom: 3px;
-    }
-    .command-detail-scope { font-size: 10px; color: var(--muted); margin-bottom: 4px; }
-    .command-detail-desc { font-size: 11px; color: var(--muted); line-height: 1.4; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-
-    /* ── Search results overlay ── */
-    #search-results {
-      position: fixed;
-      top: 44px; left: 0; right: 0;
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      z-index: 100;
-      max-height: 60vh;
-      overflow-y: auto;
-      display: none;
-    }
-    .search-result-item {
-      padding: 10px 16px;
-      border-bottom: 1px solid var(--border);
-      cursor: pointer;
-    }
-    .search-result-item:hover { background: var(--surface2); }
-    .sr-top { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
-    .sr-name { font-size: 13px; font-weight: 500; }
-    .sr-project { font-size: 10px; color: var(--muted); }
-    .sr-snippet { font-size: 11px; color: var(--muted); font-family: monospace; }
-
-    /* ── New memory modal ── */
-    .modal-overlay {
-      position: fixed; inset: 0;
-      background: rgba(0,0,0,0.7);
-      z-index: 200;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .modal {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 24px;
-      width: 480px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-    .modal h2 { font-size: 14px; }
-    .field { display: flex; flex-direction: column; gap: 4px; }
-    .field label { font-size: 11px; color: var(--muted); }
-    .field input, .field select, .field textarea {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      color: var(--text);
-      padding: 7px 10px;
-      border-radius: 5px;
-      font-size: 13px;
-      font-family: inherit;
-    }
-    .field input:focus, .field select:focus, .field textarea:focus { outline: 1px solid var(--accent); }
-    .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
-
-    /* ── Empty states ── */
-    .empty {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      color: var(--muted);
-      font-size: 13px;
-      gap: 8px;
-    }
-    .empty-icon { width: 48px; height: 48px; opacity: 0.25; }
-    .empty { gap: 12px; }
-
-    /* ── CLAUDE.md entry in file list ── */
-    .claude-md-item {
-      padding: 11px 12px;
-      cursor: pointer;
-      border-left: 2px solid transparent;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      transition: background 0.1s;
-    }
-    .claude-md-item:hover { background: var(--surface2); }
-    .claude-md-item.active { border-left-color: var(--claude_md); background: var(--surface2); }
-    .claude-md-item .type-badge { background: var(--claude_md); color: #000; }
-    .claude-md-item { justify-content: space-between; }
-    .claude-md-item .item-name { font-size: 12px; font-weight: 500; color: var(--text); flex: 1; }
-
-    /* Type colors — only two variants used in file list */
-    .type-claude_md { background: color-mix(in srgb, var(--claude_md) 8%, var(--bg)); border-color: color-mix(in srgb, var(--claude_md) 30%, transparent); color: var(--claude_md); }
-    .type-md { background: color-mix(in srgb, var(--unknown) 8%, var(--bg)); border-color: color-mix(in srgb, var(--unknown) 30%, transparent); color: var(--unknown); }
-    .type-command { background: var(--surface2); border-color: var(--command); color: var(--command); }
-
-    ::-webkit-scrollbar { width: 5px; height: 5px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-  </style>
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
 
@@ -941,14 +13,12 @@
 <header>
   <h1>Claude Memory GUI</h1>
   <div id="search-bar">
-    <input id="search-input" type="text" placeholder="Search memories…" autocomplete="off" />
+    <input id="search-input" type="text" placeholder="Search claude files..." autocomplete="off" />
     <select id="type-filter">
-      <option value="">All types</option>
-      <option value="user">user</option>
-      <option value="feedback">feedback</option>
-      <option value="project">project</option>
-      <option value="reference">reference</option>
-      <option value="claude_md">MD files</option>
+      <option value="">All</option>
+      <option value="claude_md">md file</option>
+      <option value="memory">memory</option>
+      <option value="chat">chat</option>
     </select>
   </div>
   <div id="status-dot" title="Live sync active"></div>
@@ -977,7 +47,7 @@
       </div>
       <div class="sidebar-header-row">
         <div class="sidebar-title">Projects</div>
-        <button class="toggle-empty" id="toggle-empty-btn" onclick="toggleShowEmpty()">show empty</button>
+        <button class="toggle-empty on" id="toggle-empty-btn" onclick="toggleShowEmpty()">hide empty</button>
       </div>
       <div id="project-list"></div>
       <div class="tree-footer" id="tree-footer"></div>
@@ -994,6 +64,11 @@
 
   <!-- Middle: file list OR command list -->
   <div class="file-list-col">
+    <div class="file-search-row" id="file-search-row">
+      <span class="file-search-icon">⌕</span>
+      <input type="text" class="file-search-input" id="file-search-input" placeholder="Search files…" />
+    </div>
+    <div class="file-list-header" id="file-list-header"></div>
     <div class="file-list" id="file-list">
       <div class="empty">Select a project</div>
     </div>
@@ -1004,7 +79,7 @@
 
   <!-- Editor pane -->
   <div class="editor-pane" id="editor-pane">
-    <div class="empty">Select a file to edit</div>
+    <div class="empty">Select a file to view</div>
   </div>
 
   <div class="resize-handle" data-col="stats" id="stats-resize-handle" style="display:none"><div class="resize-grip"></div></div>
@@ -1069,6 +144,10 @@
   </div>
 </div>
 
+
+<script src="js/utils.js"></script>
+<script src="js/resize.js"></script>
+<script src="js/stats.js"></script>
 <script>
 // ── State ──────────────────────────────────────────────────────────────────
 let projects = [];
@@ -1079,74 +158,29 @@ let files = [];
 let modified = false;
 let saveTimeout = null;
 let currentTab = 'memory'; // 'memory' | 'commands'
-let fileSort = 'modified';
-let groupFiles = true;
-const collapsedSections = new Set(); // 'alpha' | 'modified'
-let activeFilters = new Set(['memory', 'claudemd', 'conversations']);
 let activeConvPath = null;
 let statsPanelOpen = true; // remembers toggle state across conversations
 let cachedHealth = [];
 let cachedConversations = [];
 let cachedMdFiles = [];
+let fileSearchQuery = '';
 
-// ── Panel widths & resize ──────────────────────────────────────────────────
-const colWidths = { sidebar: 220, filelist: 280, stats: 405 };
-
-function applyGridCols() {
-  const layout = document.querySelector('.layout');
-  const hasStats = layout.classList.contains('has-stats-panel');
-  layout.style.gridTemplateColumns =
-    `${colWidths.sidebar}px 5px ${colWidths.filelist}px 5px 1fr` +
-    (hasStats ? ` 5px ${colWidths.stats}px` : '');
+// ── Persisted UI state ─────────────────────────────────────────────────────
+const UI_STORAGE_KEY = 'memgui_ui';
+function loadUIState() {
+  try { return JSON.parse(localStorage.getItem(UI_STORAGE_KEY) || '{}'); } catch { return {}; }
 }
+function saveUIState(patch) {
+  const s = loadUIState();
+  localStorage.setItem(UI_STORAGE_KEY, JSON.stringify({ ...s, ...patch }));
+}
+const _ui = loadUIState();
+let fileSort = _ui.fileSort ?? 'modified';
+let groupFiles = _ui.groupFiles ?? true;
+let showEmptyProjects = _ui.showEmptyProjects ?? true;
+let activeFilters = new Set(_ui.activeFilters ?? ['memory', 'claudemd', 'conversations']);
+const collapsedSections = new Set(); // 'alpha' | 'modified'
 
-document.addEventListener('mousedown', e => {
-  const grip = e.target.closest('.resize-grip');
-  if (!grip) return;
-  const handle = grip.closest('.resize-handle');
-  if (!handle) return;
-  e.preventDefault();
-  const col = handle.dataset.col;
-  const startX = e.clientX;
-  const startW = colWidths[col];
-  handle.classList.add('dragging');
-  document.body.style.cursor = 'col-resize';
-  document.body.style.userSelect = 'none';
-  const onMove = e => {
-    const delta = e.clientX - startX;
-    colWidths[col] = col === 'stats'
-      ? Math.max(180, startW - delta)
-      : Math.max(140, startW + delta);
-    applyGridCols();
-  };
-  const onUp = () => {
-    handle.classList.remove('dragging');
-    document.body.style.cursor = '';
-    document.body.style.userSelect = '';
-    document.removeEventListener('mousemove', onMove);
-    document.removeEventListener('mouseup', onUp);
-  };
-  document.addEventListener('mousemove', onMove);
-  document.addEventListener('mouseup', onUp);
-});
-
-// ── SVG icons ──────────────────────────────────────────────────────────────
-const ICON_FOLDER = `<svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-  <path d="M3 7a2 2 0 0 1 2-2h3.586a1 1 0 0 1 .707.293L10.414 6.5A1 1 0 0 0 11.121 6.793H19a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/>
-</svg>`;
-
-const ICON_FILE = `<svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-  <polyline points="14 2 14 8 20 8"/>
-  <line x1="16" y1="13" x2="8" y2="13"/>
-  <line x1="16" y1="17" x2="8" y2="17"/>
-  <line x1="10" y1="9" x2="8" y2="9"/>
-</svg>`;
-
-const ICON_COMMAND = `<svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-  <polyline points="4 17 10 11 4 5"/>
-  <line x1="12" y1="19" x2="20" y2="19"/>
-</svg>`;
 
 // ── API ────────────────────────────────────────────────────────────────────
 async function api(method, url, body) {
@@ -1160,6 +194,15 @@ async function api(method, url, body) {
 // ── Boot ───────────────────────────────────────────────────────────────────
 async function boot() {
   applyGridCols();
+  // Restore persisted UI state
+  ['memory', 'claudemd', 'conversations'].forEach(key => {
+    document.getElementById(`fp-${key}`)?.classList.toggle('active', activeFilters.has(key));
+  });
+  const emptyBtn = document.getElementById('toggle-empty-btn');
+  if (emptyBtn) {
+    emptyBtn.classList.toggle('on', showEmptyProjects);
+    emptyBtn.textContent = showEmptyProjects ? 'hide empty' : 'show empty';
+  }
   [projects, commands] = await Promise.all([
     api('GET', '/api/projects'),
     api('GET', '/api/commands'),
@@ -1209,6 +252,7 @@ async function toggleFilter(key) {
       cachedConversations = await api('GET', `/api/projects/${activeProjectId}/conversations`);
     }
   }
+  saveUIState({ activeFilters: [...activeFilters] });
   document.getElementById(`fp-${key}`).classList.toggle('active', activeFilters.has(key));
   renderProjects(); // cheap — uses cached projects array, no server call
   if (activeProjectId) {
@@ -1221,12 +265,14 @@ async function toggleFilter(key) {
 async function setFileSort(mode, e) {
   e.stopPropagation();
   fileSort = mode;
+  saveUIState({ fileSort });
   if (activeProjectId) await selectProject(activeProjectId);
 }
 
 // ── Group toggle ───────────────────────────────────────────────────────────
 function toggleGroupFiles() {
   groupFiles = !groupFiles;
+  saveUIState({ groupFiles });
   const btn = document.getElementById('group-toggle-btn');
   if (btn) btn.classList.toggle('on', groupFiles);
   const proj = projects.find(p => p.id === activeProjectId);
@@ -1234,10 +280,9 @@ function toggleGroupFiles() {
 }
 
 // ── Show-empty toggle ──────────────────────────────────────────────────────
-let showEmptyProjects = false;
-
 function toggleShowEmpty() {
   showEmptyProjects = !showEmptyProjects;
+  saveUIState({ showEmptyProjects });
   const btn = document.getElementById('toggle-empty-btn');
   btn.classList.toggle('on', showEmptyProjects);
   btn.textContent = showEmptyProjects ? 'hide empty' : 'show empty';
@@ -1323,9 +368,8 @@ function renderProjects() {
     el.appendChild(item);
   }
 
-  // Build and compress tree for non-global
+  // Build tree for non-global
   const tree = buildProjectTree(filtered);
-  compressTree(tree);
   renderTreeNode(el, tree, 0, '');
 
   // Footer counts (across ALL projects, not just filtered)
@@ -1399,7 +443,7 @@ function renderTreeNode(container, node, depth, pathKey) {
       if (!proj) continue;
       const item = document.createElement('div');
       item.className = 'project-item' + (proj.id === activeProjectId ? ' active' : '');
-      item.style.paddingLeft = indent + 'px';
+      item.style.paddingLeft = (indent + 20) + 'px';
       item.innerHTML = `
         <span class="project-label" title="${escHtml(proj.id)}">${escHtml(key)}</span>
         <span class="project-count">${visibleCount(proj)}</span>
@@ -1412,7 +456,10 @@ function renderTreeNode(container, node, depth, pathKey) {
 
 // ── Select project ─────────────────────────────────────────────────────────
 async function selectProject(id) {
-  if (id !== activeProjectId) { cachedHealth = []; cachedConversations = []; cachedMdFiles = []; }
+  document.getElementById('file-list').innerHTML = '<div class="empty"><div class="spinner"></div></div>';
+  document.getElementById('file-list-footer').innerHTML = '';
+
+  if (id !== activeProjectId) { cachedHealth = []; cachedConversations = []; cachedMdFiles = []; fileSearchQuery = ''; }
   activeProjectId = id;
   renderProjects();
 
@@ -1441,8 +488,16 @@ function renderFileList(proj, files, health, conversations = [], mdFiles = []) {
   if (activeFilters.has('claudemd') && mdFiles.length) countParts.push(`${mdFiles.length} MD files`);
   if (activeFilters.has('memory')) countParts.push(`${memCount} memories`);
   if (activeFilters.has('conversations')) countParts.push(`${conversations.length} chats`);
-  const hdr = document.createElement('div');
-  hdr.className = 'file-list-header';
+  // ── Fixed header: search + controls (live in the col wrapper, not scroll area) ──
+  const searchInp = document.getElementById('file-search-input');
+  searchInp.value = fileSearchQuery;
+  // Re-attach listener each render (old clone trick avoids duplicates)
+  const freshSearch = searchInp.cloneNode(true);
+  searchInp.replaceWith(freshSearch);
+  freshSearch.value = fileSearchQuery;
+
+  const hdr = document.getElementById('file-list-header');
+  hdr.innerHTML = '';
 
   const sortToggle = document.createElement('div');
   sortToggle.className = 'sort-toggle';
@@ -1468,7 +523,24 @@ function renderFileList(proj, files, health, conversations = [], mdFiles = []) {
   reloadBtn.onclick = () => { if (activeProjectId) selectProject(activeProjectId); };
   hdr.appendChild(reloadBtn);
 
-  el.appendChild(hdr);
+  function applyFileSearch(q) {
+    fileSearchQuery = q.toLowerCase().trim();
+    const items = el.querySelectorAll('.file-item');
+    items.forEach(item => {
+      const match = !fileSearchQuery || item.dataset.searchtext?.includes(fileSearchQuery);
+      item.style.display = match ? '' : 'none';
+    });
+    // Hide section dividers when all their children are hidden
+    el.querySelectorAll('.section-divider').forEach(div => {
+      const body = div.nextElementSibling;
+      if (!body) return;
+      const anyVisible = [...body.querySelectorAll('.file-item')].some(i => i.style.display !== 'none');
+      div.style.display = anyVisible ? '' : 'none';
+      body.style.display = anyVisible ? '' : 'none';
+    });
+  }
+
+  freshSearch.addEventListener('input', e => applyFileSearch(e.target.value));
 
   // ── Helpers to build DOM items ──────────────────────────────────────────
   function makeMdFileItem(f) {
@@ -1489,6 +561,7 @@ function renderFileList(proj, files, health, conversations = [], mdFiles = []) {
     item.onclick = () => openFile(f.filePath, f.filename);
     item.dataset.mtime = f.mtime || '';
     item.dataset.name = f.description || f.filename;
+    item.dataset.searchtext = ((f.filename || '') + ' ' + (f.description || '')).toLowerCase();
     return item;
   }
 
@@ -1509,6 +582,7 @@ function renderFileList(proj, files, health, conversations = [], mdFiles = []) {
     item.onclick = () => openFile(f.filePath, f.filename);
     item.dataset.mtime = f.mtime || '';
     item.dataset.name = f.name;
+    item.dataset.searchtext = ((f.name || '') + ' ' + (f.description || '') + ' ' + (f.body || '')).toLowerCase();
     return item;
   }
 
@@ -1529,6 +603,7 @@ function renderFileList(proj, files, health, conversations = [], mdFiles = []) {
     item.onclick = () => openConversation(conv);
     item.dataset.mtime = conv.mtime || '';
     item.dataset.name = conv.firstUserMessage || '';
+    item.dataset.searchtext = ((conv.firstUserMessage || '') + ' ' + (conv.cwd || '')).toLowerCase();
     return item;
   }
 
@@ -1554,9 +629,9 @@ function renderFileList(proj, files, health, conversations = [], mdFiles = []) {
     divider.className = 'section-divider';
     const chevron = document.createElement('span');
     chevron.className = 'section-chevron';
-    chevron.textContent = isCollapsed ? '‹' : '⌄';
-    divider.appendChild(chevron);
+    chevron.textContent = isCollapsed ? '›' : '⌄';
     divider.appendChild(document.createTextNode(label));
+    divider.appendChild(chevron);
     const body = document.createElement('div');
     body.className = 'section-body' + (isCollapsed ? ' collapsed' : '');
     buildItems(body);
@@ -1564,7 +639,7 @@ function renderFileList(proj, files, health, conversations = [], mdFiles = []) {
       if (collapsedSections.has(key)) collapsedSections.delete(key);
       else collapsedSections.add(key);
       const nowCollapsed = collapsedSections.has(key);
-      chevron.textContent = nowCollapsed ? '‹' : '⌄';
+      chevron.textContent = nowCollapsed ? '›' : '⌄';
       body.classList.toggle('collapsed', nowCollapsed);
     };
     el.appendChild(divider);
@@ -1646,6 +721,8 @@ function renderFileList(proj, files, health, conversations = [], mdFiles = []) {
     }
     el.appendChild(hp);
   }
+
+  if (fileSearchQuery) applyFileSearch(fileSearchQuery);
 
   // Count footer (rendered outside scroll area so it sticks to bottom)
   const footerEl = document.getElementById('file-list-footer');
@@ -1899,7 +976,7 @@ async function deleteFile(filePath) {
   await api('DELETE', '/api/file', { filePath });
   activeFilePath = null;
   modified = false;
-  document.getElementById('editor-pane').innerHTML = `<div class="empty">${ICON_FILE}Select a file to edit</div>`;
+  document.getElementById('editor-pane').innerHTML = `<div class="empty">${ICON_FILE}Select a file to view</div>`;
 
   if (currentTab === 'memory' && activeProjectId) {
     await selectProject(activeProjectId);
@@ -2031,203 +1108,6 @@ function setupSSE() {
   };
 }
 
-// ── Pricing & stats ────────────────────────────────────────────────────────
-
-// Prices from https://platform.claude.com/docs/en/about-claude/pricing (fetched 2026-03-26)
-// More specific entries first (first match wins).
-const PRICING = [
-  { match: 'claude-opus-4-6',   input:  5.00, output: 25.00, cw5m:  6.25, cw1h: 10.00, cr: 0.50 },
-  { match: 'claude-opus-4-5',   input:  5.00, output: 25.00, cw5m:  6.25, cw1h: 10.00, cr: 0.50 },
-  { match: 'claude-opus-4-1',   input: 15.00, output: 75.00, cw5m: 18.75, cw1h: 30.00, cr: 1.50 },
-  { match: 'claude-opus-4',     input: 15.00, output: 75.00, cw5m: 18.75, cw1h: 30.00, cr: 1.50 },
-  { match: 'claude-sonnet-4',   input:  3.00, output: 15.00, cw5m:  3.75, cw1h:  6.00, cr: 0.30 },
-  { match: 'claude-haiku-4-5',  input:  1.00, output:  5.00, cw5m:  1.25, cw1h:  2.00, cr: 0.10 },
-  { match: 'claude-haiku-3-5',  input:  0.80, output:  4.00, cw5m:  1.00, cw1h:  1.60, cr: 0.08 },
-  { match: 'claude-3-5-sonnet', input:  3.00, output: 15.00, cw5m:  3.75, cw1h:  6.00, cr: 0.30 },
-  { match: 'claude-3-opus',     input: 15.00, output: 75.00, cw5m: 18.75, cw1h: 30.00, cr: 1.50 },
-  { match: 'claude-3-sonnet',   input:  3.00, output: 15.00, cw5m:  3.75, cw1h:  6.00, cr: 0.30 },
-  { match: 'claude-3-haiku',    input:  0.25, output:  1.25, cw5m:  0.30, cw1h:  0.50, cr: 0.03 },
-];
-
-function lookupPricing(model) {
-  if (!model) return null;
-  const m = model.toLowerCase();
-  return PRICING.find(p => m.includes(p.match)) || null;
-}
-
-function computeConvStats(messages) {
-  let inp = 0, out = 0, cw5m = 0, cw1h = 0, cr = 0, apiCalls = 0;
-  let model = '';
-  for (const r of messages) {
-    if (r.type !== 'assistant') continue;
-    const usage = r.message?.usage;
-    if (!usage) continue;
-    apiCalls++;
-    if (r.message?.model && !model) model = r.message.model;
-    inp  += usage.input_tokens || 0;
-    out  += usage.output_tokens || 0;
-    cr   += usage.cache_read_input_tokens || 0;
-    const cc = usage.cache_creation || {};
-    const got5m = cc.ephemeral_5m_input_tokens || 0;
-    const got1h = cc.ephemeral_1h_input_tokens || 0;
-    if (got5m || got1h) {
-      cw5m += got5m;
-      cw1h += got1h;
-    } else {
-      // Older records without breakdown: assume 1h (most common in Claude Code)
-      cw1h += usage.cache_creation_input_tokens || 0;
-    }
-  }
-
-  const p = lookupPricing(model);
-  const M = 1_000_000;
-  let cost = null, costInp = null, costOut = null, costCw = null, costCr = null;
-  let costNoCaching = null;
-  if (p) {
-    costInp  = inp   / M * p.input;
-    costOut  = out   / M * p.output;
-    costCw   = (cw5m / M * p.cw5m) + (cw1h / M * p.cw1h);
-    costCr   = cr    / M * p.cr;
-    cost     = costInp + costOut + costCw + costCr;
-    costNoCaching = (inp + cw5m + cw1h + cr) / M * p.input + out / M * p.output;
-  }
-
-  return { inp, out, cw5m, cw1h, cr, model, apiCalls, cost, costInp, costOut, costCw, costCr, costNoCaching };
-}
-
-function fmtTok(n) {
-  if (n >= 1e9) return (n / 1e9).toFixed(2) + 'B';
-  if (n >= 1e6) return (n / 1e6).toFixed(2) + 'M';
-  if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
-  return n.toString();
-}
-
-function fmtCost(n) {
-  if (n == null) return '—';
-  if (n === 0)   return '$0.00';
-  if (n < 0.001) return '<$0.001';
-  if (n < 1)     return '$' + n.toFixed(4);
-  return '$' + n.toFixed(2);
-}
-
-function renderStatsTab(container, messages, conv) {
-  const s = computeConvStats(messages);
-
-  const savedAbs = (s.costNoCaching != null && s.cost != null) ? s.costNoCaching - s.cost : null;
-  const savedPct = (savedAbs != null && s.costNoCaching > 0) ? savedAbs / s.costNoCaching * 100 : 0;
-
-  const el = document.createElement('div');
-  el.className = 'stats-scroll';
-
-  // ── Cost summary ──
-  const pricingNote = lookupPricing(s.model) ? '' : ' <span style="color:var(--warn);font-size:10px">(unknown model pricing)</span>';
-  el.innerHTML += `
-    <div class="stats-card">
-      <div class="stats-card-title">Estimated Cost${pricingNote}</div>
-      <div class="cost-total">${fmtCost(s.cost)}</div>
-      <div class="cost-chips">
-        <span class="cost-chip">Input <strong>${fmtCost(s.costInp)}</strong></span>
-        <span class="cost-chip">Output <strong>${fmtCost(s.costOut)}</strong></span>
-        <span class="cost-chip">Cache write <strong>${fmtCost(s.costCw)}</strong></span>
-        <span class="cost-chip">Cache read <strong>${fmtCost(s.costCr)}</strong></span>
-      </div>
-    </div>
-  `;
-
-  // ── Token breakdown ──
-  const rows = [
-    { label: 'Input (fresh)',   tok: s.inp,  cost: s.costInp, color: '#6366f1' },
-    { label: 'Cache write 5m', tok: s.cw5m, cost: s.costCw != null ? s.cw5m / 1e6 * (lookupPricing(s.model)?.cw5m || 0) : null, color: '#f59e0b' },
-    { label: 'Cache write 1h', tok: s.cw1h, cost: s.costCw != null ? s.cw1h / 1e6 * (lookupPricing(s.model)?.cw1h || 0) : null, color: '#f97316' },
-    { label: 'Cache read',     tok: s.cr,   cost: s.costCr,  color: '#22c55e' },
-    { label: 'Output',         tok: s.out,  cost: s.costOut, color: '#3b82f6' },
-  ].filter(r => r.tok > 0);
-
-  const totalTok = rows.reduce((sum, r) => sum + r.tok, 0) || 1;
-
-  const barSegs = rows.map(r =>
-    `<div class="token-bar-seg" style="width:${(r.tok / totalTok * 100).toFixed(2)}%;background:${r.color}" title="${r.label}: ${fmtTok(r.tok)}"></div>`
-  ).join('');
-
-  const tableRows = rows.map(r => `
-    <tr>
-      <td><span class="tok-dot" style="background:${r.color}"></span>${r.label}</td>
-      <td>${fmtTok(r.tok)}</td>
-      <td>${fmtCost(r.cost)}</td>
-    </tr>
-  `).join('');
-
-  el.innerHTML += `
-    <div class="stats-card">
-      <div class="stats-card-title">Token Breakdown</div>
-      <div class="token-bar">${barSegs}</div>
-      <table class="tok-table">
-        <thead><tr><th>Type</th><th>Tokens</th><th>Cost</th></tr></thead>
-        <tbody>
-          ${tableRows}
-          <tr class="tok-total">
-            <td>Total</td>
-            <td>${fmtTok(totalTok)}</td>
-            <td>${fmtCost(s.cost)}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  `;
-
-  // ── Cache savings ──
-  if (savedAbs != null && savedAbs > 0.0001) {
-    el.innerHTML += `
-      <div class="stats-card">
-        <div class="stats-card-title">Cache Savings</div>
-        <div class="savings-labels">
-          <span>Actual: <strong style="color:var(--text)">${fmtCost(s.cost)}</strong></span>
-          <span>Saved: <strong>${fmtCost(savedAbs)}</strong> (${savedPct.toFixed(0)}%)</span>
-        </div>
-        <div class="savings-bar-track">
-          <div class="savings-bar-fill" style="width:${Math.min(savedPct, 100).toFixed(1)}%"></div>
-        </div>
-        <div style="font-size:11px;color:var(--muted)">Without caching would cost ${fmtCost(s.costNoCaching)}</div>
-      </div>
-    `;
-  }
-
-  // ── Details ──
-  el.innerHTML += `
-    <div class="stats-card">
-      <div class="stats-card-title">Details</div>
-      <div class="stats-meta-row"><span class="label">Model</span><span>${escHtml(s.model || conv.model || '—')}</span></div>
-      <div class="stats-meta-row"><span class="label">API calls</span><span>${s.apiCalls}</span></div>
-      <div class="stats-meta-row"><span class="label">Started</span><span>${conv.timestamp ? new Date(conv.timestamp).toLocaleString() : '—'}</span></div>
-      <div class="stats-meta-row"><span class="label">File size</span><span>${formatBytes(conv.size)}</span></div>
-    </div>
-  `;
-
-  container.appendChild(el);
-}
-
-function showConvStatsPanel(messages, conv) {
-  const panel = document.getElementById('conv-stats-panel');
-  panel.innerHTML = '';
-  panel.classList.add('visible');
-  document.querySelector('.layout').classList.add('has-stats-panel');
-  document.getElementById('stats-resize-handle').style.display = '';
-  applyGridCols();
-  const hdr = document.createElement('div');
-  hdr.className = 'conv-stats-panel-header';
-  hdr.textContent = 'Cost & Tokens';
-  panel.appendChild(hdr);
-  renderStatsTab(panel, messages, conv);
-}
-
-function hideConvStatsPanel() {
-  const panel = document.getElementById('conv-stats-panel');
-  panel.classList.remove('visible');
-  panel.innerHTML = '';
-  document.querySelector('.layout').classList.remove('has-stats-panel');
-  document.getElementById('stats-resize-handle').style.display = 'none';
-  applyGridCols();
-}
 
 // ── Conversation viewer ────────────────────────────────────────────────────
 async function openConversation(conv) {
@@ -2324,33 +1204,6 @@ function renderChatMessages(scroll, messages) {
   }
 }
 
-// ── Utils ──────────────────────────────────────────────────────────────────
-function relativeTime(mtime) {
-  const diff = Date.now() - new Date(mtime).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  const days = Math.floor(hrs / 24);
-  if (days < 30) return `${days}d ago`;
-  const months = Math.floor(days / 30);
-  if (months < 12) return `${months}mo ago`;
-  return `${Math.floor(months / 12)}y ago`;
-}
-
-function formatBytes(b) {
-  if (b < 1024) return b + ' B';
-  if (b < 1048576) return (b / 1024).toFixed(0) + ' KB';
-  return (b / 1048576).toFixed(1) + ' MB';
-}
-
-function escHtml(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-function escAttr(s) {
-  return String(s).replace(/'/g,"\\'");
-}
 
 // ── Init ───────────────────────────────────────────────────────────────────
 boot();
