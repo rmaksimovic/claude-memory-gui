@@ -87,24 +87,47 @@ function switchTab(tab) {
 
 // ── SSE ────────────────────────────────────────────────────────────────────
 function setupSSE() {
-  const es = new EventSource('/api/events');
   const dot = document.getElementById('status-dot');
-  es.onopen = () => { dot.style.background = 'var(--ok)'; dot.title = 'Live sync active'; };
-  es.onerror = () => { dot.style.background = 'var(--err)'; dot.title = 'Connection lost'; };
-  es.onmessage = async (e) => {
-    const data = JSON.parse(e.data);
-    if (data.type === 'change') {
-      if (currentTab === 'memory' && activeProjectId) {
-        await selectProject(activeProjectId);
-        projects = await api('GET', '/api/projects');
-        renderProjects();
-      } else if (currentTab === 'commands') {
-        commands = await api('GET', '/api/commands');
-        renderCommandsMiddlePanel();
-        renderCommandSidebar();
+  let reloadPending = false;
+
+  function connect() {
+    const es = new EventSource('/api/events');
+
+    es.onopen = () => { dot.style.background = 'var(--ok)'; dot.title = 'Live sync active'; };
+
+    es.onerror = () => {
+      dot.style.background = 'var(--err)'; dot.title = 'Connection lost — retrying…';
+      es.close();
+      setTimeout(connect, 5000);
+    };
+
+    es.onmessage = async (e) => {
+      let data;
+      try { data = JSON.parse(e.data); } catch { return; }
+
+      if (data.type !== 'change') return;
+      if (reloadPending) return;
+      reloadPending = true;
+
+      try {
+        if (currentTab === 'memory' && activeProjectId) {
+          await selectProject(activeProjectId);
+          projects = await api('GET', '/api/projects');
+          renderProjects();
+        } else if (currentTab === 'commands') {
+          commands = await api('GET', '/api/commands');
+          renderCommandsMiddlePanel();
+          renderCommandSidebar();
+        }
+      } catch (err) {
+        console.warn('[SSE reload]', err.message);
+      } finally {
+        reloadPending = false;
       }
-    }
-  };
+    };
+  }
+
+  connect();
 }
 
 // ── Search ─────────────────────────────────────────────────────────────────
@@ -128,16 +151,19 @@ async function doSearch() {
   overlay.style.display = 'block';
   overlay.innerHTML = results.length === 0
     ? '<div style="padding:16px;color:var(--muted);font-size:13px">No results</div>'
-    : results.map(r => `
+    : results.map(r => {
+      const VALID_TYPES = new Set(['memory', 'claude_md', 'project', 'feedback', 'reference', 'user']);
+      const safeType = VALID_TYPES.has(r.type) ? r.type : 'unknown';
+      return `
       <div class="search-result-item" onclick="jumpToResult('${escAttr(r.filePath)}','${escAttr(r.filename)}','${escAttr(r.projectId)}')">
         <div class="sr-top">
-          <span class="type-badge type-${r.type}">${r.type}</span>
+          <span class="type-badge type-${safeType}">${escHtml(r.type)}</span>
           <span class="sr-name">${escHtml(r.name)}</span>
           <span class="sr-project">${escHtml(r.projectLabel)}</span>
         </div>
         <div class="sr-snippet">${escHtml(r.snippet)}</div>
       </div>
-    `).join('');
+    `;}).join('');
 }
 
 async function jumpToResult(filePath, filename, projectId) {
@@ -156,6 +182,9 @@ document.addEventListener('keydown', e => {
     searchInput.value = '';
   }
 });
+
+// ── marked config ──────────────────────────────────────────────────────────
+marked.use({ breaks: false, gfm: true, async: false });
 
 // ── Init ───────────────────────────────────────────────────────────────────
 boot();

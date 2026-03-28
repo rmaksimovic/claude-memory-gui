@@ -180,11 +180,15 @@ async function selectProject(id) {
     activeFilters.has('conversations') ? api('GET', `/api/projects/${id}/conversations`) : Promise.resolve([]),
     activeFilters.has('claudemd') ? api('GET', `/api/projects/${id}/mdfiles`) : Promise.resolve([]),
   ];
-  const [memFiles, health, conversations, mdFiles] = await Promise.all(fetches);
-  files = memFiles;
-  cachedHealth = health;
-  cachedConversations = conversations;
-  cachedMdFiles = mdFiles;
+  const results = await Promise.allSettled(fetches);
+  const settled = (i, fallback) => results[i].status === 'fulfilled' ? results[i].value : fallback;
+  files = settled(0, []);
+  cachedHealth = settled(1, []);
+  cachedConversations = settled(2, []);
+  cachedMdFiles = settled(3, []);
+  if (results.some(r => r.status === 'rejected')) {
+    console.warn('[selectProject] some fetches failed:', results.filter(r => r.status === 'rejected').map(r => r.reason));
+  }
   renderFileList(proj, files, cachedHealth, cachedConversations, cachedMdFiles);
 
   // Refresh content of any open file tabs that belong to this project
@@ -197,7 +201,9 @@ async function selectProject(id) {
         activeFileContent = content;
         renderEditor(tab.filePath, tab.filename, content);
       }
-    } catch {}
+    } catch (e) {
+      console.warn('[selectProject] failed to refresh tab:', tab.filePath, e.message);
+    }
   }
 }
 

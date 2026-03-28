@@ -49,14 +49,18 @@ app.get('/api/file', (req, res) => {
 app.put('/api/file', (req, res) => {
   const { filePath, content } = req.body;
   if (!filePath || content === undefined) return res.status(400).json({ error: 'Missing filePath or content' });
-  ensureDir(path.dirname(filePath));
-  fs.writeFileSync(filePath, content, 'utf8');
+  try {
+    ensureDir(path.dirname(filePath));
+    fs.writeFileSync(filePath, content, 'utf8');
+  } catch (e) {
+    return res.status(500).json({ error: 'Failed to write file: ' + e.message });
+  }
   // Auto-sync MEMORY.md if it's a memory file
   const dir = path.dirname(filePath);
   if (path.basename(filePath) !== 'MEMORY.md' && path.basename(filePath).endsWith('.md')) {
     const memIndex = path.join(dir, 'MEMORY.md');
     if (fs.existsSync(memIndex) || safeReadDir(dir).some(f => f.endsWith('.md'))) {
-      try { syncMemoryIndex(dir); } catch {}
+      try { syncMemoryIndex(dir); } catch (e) { console.error('[syncMemoryIndex]', e.message); }
     }
   }
   res.json({ ok: true });
@@ -80,10 +84,14 @@ app.post('/api/projects/:id/memories', (req, res) => {
 app.delete('/api/file', (req, res) => {
   const { filePath } = req.body;
   if (!filePath) return res.status(400).json({ error: 'Missing filePath' });
-  if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File not found' });
-  fs.unlinkSync(filePath);
+  try {
+    fs.unlinkSync(filePath);
+  } catch (e) {
+    if (e.code === 'ENOENT') return res.status(404).json({ error: 'File not found' });
+    return res.status(500).json({ error: 'Failed to delete file: ' + e.message });
+  }
   const dir = path.dirname(filePath);
-  try { syncMemoryIndex(dir); } catch {}
+  try { syncMemoryIndex(dir); } catch (e) { console.error('[syncMemoryIndex]', e.message); }
   res.json({ ok: true });
 });
 
