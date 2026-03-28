@@ -1087,6 +1087,17 @@ function renderBlameGrid(grid, body, lineOffset, blame) {
     pairs[pairs.length - 1][1].classList.add('last-cell');
   }
   for (const [d, c] of pairs) { grid.appendChild(d); grid.appendChild(c); }
+
+  // Click to highlight all rows with the same date value
+  grid.addEventListener('click', e => {
+    const cell = e.target.closest('.blame-date-cell');
+    if (!cell || !cell.textContent.trim()) return;
+    const val = cell.textContent.trim();
+    const allDate = grid.querySelectorAll('.blame-date-cell');
+    const wasSelected = cell.classList.contains('blame-selected');
+    allDate.forEach(c => c.classList.remove('blame-selected'));
+    if (!wasSelected) allDate.forEach(c => { if (c.textContent.trim() === val) c.classList.add('blame-selected'); });
+  });
 }
 
 function renderPreview(pane, content, filePath) {

@@ -908,7 +908,12 @@
     }
     .blame-date-cell.first-cell { border-top: 1px solid var(--border); border-radius: 8px 0 0 0; padding-top: 16px; }
     .blame-date-cell.last-cell  { border-bottom: 1px solid var(--border); border-radius: 0 0 0 8px; padding-bottom: 16px; }
-    .blame-date-cell:hover { opacity: 1; }
+    .blame-date-cell:hover { opacity: 1; cursor: pointer; }
+    .blame-date-cell.blame-selected {
+      background: color-mix(in srgb, #4caf50 14%, var(--bg));
+      color: #2e7d32;
+      opacity: 1;
+    }
     /* Content card — right column, no left border (shared with date card's right border) */
     .blame-content-cell.md-preview {
       border: none;
