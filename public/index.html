@@ -286,6 +286,7 @@ let fileSort = _ui.fileSort ?? 'modified';
 let groupFiles = _ui.groupFiles ?? true;
 let showEmptyProjects = _ui.showEmptyProjects ?? true;
 let activeFilters = new Set(_ui.activeFilters ?? ['memory', 'claudemd', 'conversations']);
+let blameGutterVisible = _ui.blameGutterVisible ?? true;
 const collapsedSections = new Set(); // 'alpha' | 'modified'
 
 
@@ -994,6 +995,18 @@ function renderEditor(filePath, filename, content) {
 
   toolbar.appendChild(fnEl);
   toolbar.appendChild(toggle);
+  if (editorMode === 'preview') {
+    const blameBtn = document.createElement('button');
+    blameBtn.className = 'mode-btn' + (blameGutterVisible ? ' active' : '');
+    blameBtn.textContent = 'Blame';
+    blameBtn.onclick = () => {
+      blameGutterVisible = !blameGutterVisible;
+      saveUIState({ blameGutterVisible });
+      blameBtn.classList.toggle('active', blameGutterVisible);
+      pane.classList.toggle('blame-hidden', !blameGutterVisible);
+    };
+    toggle.appendChild(blameBtn);
+  }
   if (editorMode === 'edit') {
     const saveBtn = document.createElement('button');
     saveBtn.className = 'btn';
@@ -1003,6 +1016,7 @@ function renderEditor(filePath, filename, content) {
     toolbar.appendChild(saveBtn);
   }
   pane.appendChild(toolbar);
+  pane.classList.toggle('blame-hidden', !blameGutterVisible);
 
   // Git info bar (async — inserts itself when ready)
   const gitBar = document.createElement('div');
