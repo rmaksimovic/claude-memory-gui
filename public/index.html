@@ -979,42 +979,18 @@ function renderEditor(filePath, filename, content) {
   fnEl.id = 'editor-filename';
   fnEl.textContent = filePath;
 
-  // Mode toggle
-  const toggle = document.createElement('div');
-  toggle.className = 'mode-toggle';
-  const previewBtn = document.createElement('button');
-  previewBtn.className = 'mode-btn' + (editorMode === 'preview' ? ' active' : '');
-  previewBtn.textContent = 'Preview';
-  previewBtn.onclick = () => setEditorMode('preview', filePath, filename);
-  const editBtn = document.createElement('button');
-  editBtn.className = 'mode-btn' + (editorMode === 'edit' ? ' active' : '');
-  editBtn.textContent = 'Edit';
-  editBtn.onclick = () => setEditorMode('edit', filePath, filename);
-  toggle.appendChild(previewBtn);
-  toggle.appendChild(editBtn);
+  const blameBtn = document.createElement('button');
+  blameBtn.className = 'mode-btn' + (blameGutterVisible ? ' active' : '');
+  blameBtn.textContent = 'Blame';
+  blameBtn.onclick = () => {
+    blameGutterVisible = !blameGutterVisible;
+    saveUIState({ blameGutterVisible });
+    blameBtn.classList.toggle('active', blameGutterVisible);
+    pane.classList.toggle('blame-hidden', !blameGutterVisible);
+  };
 
   toolbar.appendChild(fnEl);
-  toolbar.appendChild(toggle);
-  if (editorMode === 'preview') {
-    const blameBtn = document.createElement('button');
-    blameBtn.className = 'mode-btn' + (blameGutterVisible ? ' active' : '');
-    blameBtn.textContent = 'Blame';
-    blameBtn.onclick = () => {
-      blameGutterVisible = !blameGutterVisible;
-      saveUIState({ blameGutterVisible });
-      blameBtn.classList.toggle('active', blameGutterVisible);
-      pane.classList.toggle('blame-hidden', !blameGutterVisible);
-    };
-    toggle.appendChild(blameBtn);
-  }
-  if (editorMode === 'edit') {
-    const saveBtn = document.createElement('button');
-    saveBtn.className = 'btn';
-    saveBtn.textContent = 'Save';
-    saveBtn.id = 'save-btn';
-    saveBtn.onclick = () => saveFile();
-    toolbar.appendChild(saveBtn);
-  }
+  toolbar.appendChild(blameBtn);
   pane.appendChild(toolbar);
   pane.classList.toggle('blame-hidden', !blameGutterVisible);
 
@@ -1029,11 +1005,7 @@ function renderEditor(filePath, filename, content) {
     gitBar.classList.add('loaded');
   }).catch(() => {});
 
-  if (editorMode === 'preview') {
-    renderPreview(pane, content, filePath);
-  } else {
-    renderTextarea(pane, content);
-  }
+  renderPreview(pane, content, filePath);
 }
 
 function setEditorMode(mode, filePath, filename) {
