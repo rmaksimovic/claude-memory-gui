@@ -55,13 +55,16 @@ app.put('/api/file', (req, res) => {
   } catch (e) {
     return res.status(500).json({ error: 'Failed to write file: ' + e.message });
   }
-  // Auto-sync MEMORY.md if it's a memory file
+  const basename = path.basename(filePath);
   const dir = path.dirname(filePath);
-  if (path.basename(filePath) !== 'MEMORY.md' && path.basename(filePath).endsWith('.md')) {
+  // Auto-sync MEMORY.md if it's a memory file (but not MEMORY.md itself)
+  if (basename !== 'MEMORY.md' && basename.endsWith('.md')) {
     const memIndex = path.join(dir, 'MEMORY.md');
     if (fs.existsSync(memIndex) || safeReadDir(dir).some(f => f.endsWith('.md'))) {
       try { syncMemoryIndex(dir); } catch (e) { console.error('[syncMemoryIndex]', e.message); }
     }
+    // Auto-commit the saved file (skip MEMORY.md — it's auto-generated noise)
+    gitAutoTrack(filePath, `Update: ${basename}`);
   }
   res.json({ ok: true });
 });
