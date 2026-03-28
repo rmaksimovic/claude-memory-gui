@@ -1016,7 +1016,7 @@ function renderEditor(filePath, filename, content) {
   }).catch(() => {});
 
   if (editorMode === 'preview') {
-    renderPreview(pane, content);
+    renderPreview(pane, content, filePath);
   } else {
     renderTextarea(pane, content);
   }
@@ -1033,36 +1033,97 @@ function setEditorMode(mode, filePath, filename) {
 }
 
 // ── Preview renderer ───────────────────────────────────────────────────────
-function renderPreview(pane, content) {
+function buildFrontmatterBlock(fmContent) {
+  const fmBlock = document.createElement('div');
+  fmBlock.className = 'md-frontmatter';
+  for (const line of fmContent.split('\n')) {
+    const idx = line.indexOf(':');
+    if (idx === -1) continue;
+    const key = line.slice(0, idx).trim();
+    const val = line.slice(idx + 1).trim();
+    const row = document.createElement('div');
+    row.className = 'md-frontmatter-row';
+    row.innerHTML = `<span class="md-frontmatter-key">${escHtml(key)}</span><span class="md-frontmatter-val">${escHtml(val)}</span>`;
+    fmBlock.appendChild(row);
+  }
+  return fmBlock;
+}
+
+function blameDate(ts) {
+  const diff = Date.now() - ts;
+  const day = 86400000;
+  if (diff < day) return 'today';
+  if (diff < 2 * day) return 'yest.';
+  if (diff < 7 * day) return `${Math.floor(diff / day)}d`;
+  const d = new Date(ts);
+  const mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()];
+  return d.getFullYear() === new Date().getFullYear() ? `${mon} ${d.getDate()}` : `${mon} '${String(d.getFullYear()).slice(2)}`;
+}
+
+function blameLineCount(raw) {
+  const n = (raw.match(/\n/g) || []).length;
+  return n + (raw.endsWith('\n') ? 0 : 1);
+}
+
+function renderBlameGrid(grid, body, lineOffset, blame) {
+  const tokens = marked.lexer(body);
+  let line = lineOffset;
+  for (const token of tokens) {
+    const lc = blameLineCount(token.raw);
+    if (token.type === 'space') { line += lc; continue; }
+
+    let latest = 0;
+    for (let i = line; i < line + lc && i < blame.length; i++) {
+      if (blame[i]?.timestamp > latest) latest = blame[i].timestamp;
+    }
+
+    const dateCell = document.createElement('div');
+    dateCell.className = 'blame-date-cell';
+    if (latest) {
+      dateCell.textContent = blameDate(latest);
+      dateCell.title = new Date(latest).toLocaleString();
+    }
+
+    const contentCell = document.createElement('div');
+    contentCell.className = 'blame-content-cell';
+    contentCell.innerHTML = marked.parse(token.raw);
+
+    grid.appendChild(dateCell);
+    grid.appendChild(contentCell);
+    line += lc;
+  }
+}
+
+function renderPreview(pane, content, filePath) {
   const scroll = document.createElement('div');
   scroll.className = 'md-preview-scroll';
-
   const div = document.createElement('div');
   div.className = 'md-preview';
 
-  // Extract and render frontmatter separately
   const fmMatch = content.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
+  const body = fmMatch ? fmMatch[2] : content;
+  const fmLineCount = fmMatch ? fmMatch[1].split('\n').length + 2 : 0;
+
   if (fmMatch) {
-    const fmBlock = document.createElement('div');
-    fmBlock.className = 'md-frontmatter';
-    for (const line of fmMatch[1].split('\n')) {
-      const idx = line.indexOf(':');
-      if (idx === -1) continue;
-      const key = line.slice(0, idx).trim();
-      const val = line.slice(idx + 1).trim();
-      const row = document.createElement('div');
-      row.className = 'md-frontmatter-row';
-      row.innerHTML = `<span class="md-frontmatter-key">${escHtml(key)}</span><span class="md-frontmatter-val">${escHtml(val)}</span>`;
-      fmBlock.appendChild(row);
-    }
-    div.appendChild(fmBlock);
-    div.innerHTML += marked.parse(fmMatch[2]);
+    div.appendChild(buildFrontmatterBlock(fmMatch[1]));
+    div.insertAdjacentHTML('beforeend', marked.parse(body));
   } else {
     div.innerHTML = marked.parse(content);
   }
 
   scroll.appendChild(div);
   pane.appendChild(scroll);
+
+  if (!filePath) return;
+  api('GET', `/api/blame?path=${encodeURIComponent(filePath)}`).then(blame => {
+    if (!blame || !div.isConnected) return;
+    div.innerHTML = '';
+    if (fmMatch) div.appendChild(buildFrontmatterBlock(fmMatch[1]));
+    const grid = document.createElement('div');
+    grid.className = 'blame-grid';
+    renderBlameGrid(grid, body, fmLineCount, blame);
+    div.appendChild(grid);
+  }).catch(() => {});
 }
 
 // ── Textarea editor ────────────────────────────────────────────────────────

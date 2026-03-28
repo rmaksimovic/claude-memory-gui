@@ -609,6 +609,35 @@ app.get('/api/gitinfo', (req, res) => {
   );
 });
 
+// ── Git blame (per-line) ───────────────────────────────────────────────────
+
+app.get('/api/blame', (req, res) => {
+  const filePath = req.query.path;
+  if (!filePath) return res.status(400).json({ error: 'Missing path' });
+  const dir = path.dirname(filePath);
+  const file = path.basename(filePath);
+  execFile('git', ['-C', dir, 'blame', '--line-porcelain', '--', file],
+    { timeout: 5000, maxBuffer: 10 * 1024 * 1024 },
+    (err, stdout) => {
+      if (err || !stdout.trim()) return res.json(null);
+      const result = [];
+      let curTimestamp = null;
+      let curAuthor = null;
+      for (const line of stdout.split('\n')) {
+        if (line.startsWith('author ') && !line.startsWith('author-')) {
+          curAuthor = line.slice(7);
+        } else if (line.startsWith('author-time ')) {
+          curTimestamp = parseInt(line.slice(12), 10) * 1000;
+        } else if (line.startsWith('\t')) {
+          result.push({ timestamp: curTimestamp, author: curAuthor });
+          curTimestamp = null; curAuthor = null;
+        }
+      }
+      res.json(result);
+    }
+  );
+});
+
 // ── SSE for live file watching ─────────────────────────────────────────────
 
 const sseClients = new Set();

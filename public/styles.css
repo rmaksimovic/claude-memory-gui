@@ -887,6 +887,31 @@
     .md-frontmatter-key { color: var(--accent); font-weight: 600; min-width: 90px; }
     .md-frontmatter-val { color: var(--text); }
 
+    /* ── Blame grid ── */
+    .blame-grid {
+      display: grid;
+      grid-template-columns: 54px 1fr;
+    }
+    .blame-date-cell {
+      font-size: 9px;
+      color: var(--muted);
+      opacity: 0.45;
+      padding: 0.75em 6px 0 0;
+      text-align: right;
+      white-space: nowrap;
+      border-right: 1px solid var(--border);
+      cursor: default;
+      align-self: start;
+    }
+    .blame-date-cell:hover { opacity: 1; }
+    .blame-content-cell { padding: 0 0 0 14px; min-width: 0; }
+    /* keep md-preview element styles working inside blame cells */
+    .blame-content-cell h1, .blame-content-cell h2, .blame-content-cell h3,
+    .blame-content-cell h4, .blame-content-cell h5, .blame-content-cell h6 { margin: 0.7em 0 0.4em; }
+    .blame-content-cell p { margin: 0.5em 0; }
+    .blame-content-cell pre { margin: 0.5em 0; }
+    .blame-content-cell ul, .blame-content-cell ol { margin: 0.3em 0 0.3em 1.5em; }
+
     /* ── Health panel ── */
     .health-panel {
       background: var(--surface);
