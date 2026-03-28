@@ -982,6 +982,7 @@ function renderEditor(filePath, filename, content) {
   const blameBtn = document.createElement('button');
   blameBtn.className = 'group-toggle-btn' + (blameGutterVisible ? ' on' : '');
   blameBtn.innerHTML = '<span class="gtb-dot"></span>Blame';
+  blameBtn.style.display = 'none';
   blameBtn.onclick = () => {
     blameGutterVisible = !blameGutterVisible;
     saveUIState({ blameGutterVisible });
@@ -1001,8 +1002,12 @@ function renderEditor(filePath, filename, content) {
   api('GET', `/api/gitinfo?path=${encodeURIComponent(filePath)}`).then(info => {
     if (!info || !gitBar.isConnected) return;
     const ago = relativeTime(new Date(info.timestamp));
-    gitBar.innerHTML = `<span class="git-hash">${escHtml(info.hash)}</span><span class="git-subject">${escHtml(info.subject)}</span><span class="git-meta">${escHtml(info.author)} · ${ago}</span>`;
+    const ts = new Date(info.timestamp);
+    const dateStr = ts.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+    const timeStr = ts.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+    gitBar.innerHTML = `<span class="git-hash">${escHtml(info.hash)}</span><span class="git-subject">${escHtml(info.subject)}</span><span class="git-meta">${escHtml(info.author)} · ${dateStr} ${timeStr} (${ago})</span>`;
     gitBar.classList.add('loaded');
+    blameBtn.style.display = '';
   }).catch(() => {});
 
   renderPreview(pane, content, filePath);
@@ -1035,15 +1040,28 @@ function buildFrontmatterBlock(fmContent) {
   return fmBlock;
 }
 
-function blameDate(ts) {
+function blameRelative(ts) {
   const diff = Date.now() - ts;
-  const day = 86400000;
-  if (diff < day) return 'today';
-  if (diff < 2 * day) return 'yest.';
-  if (diff < 7 * day) return `${Math.floor(diff / day)}d`;
-  const d = new Date(ts);
-  const mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()];
-  return d.getFullYear() === new Date().getFullYear() ? `${mon} ${d.getDate()}` : `${mon} '${String(d.getFullYear()).slice(2)}`;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1)  return 'just now';
+  if (mins < 60) return `${mins} min${mins === 1 ? '' : 's'} ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24)  return `${hrs} hour${hrs === 1 ? '' : 's'} ago`;
+  const days = Math.floor(hrs / 24);
+  if (days === 1) return 'yesterday';
+  if (days < 7)  return `${days} days ago`;
+  if (days < 14) return 'last week';
+  const wks = Math.floor(days / 7);
+  if (days < 30) return `${wks} weeks ago`;
+  const mos = Math.floor(days / 30);
+  if (mos === 1)  return 'last month';
+  if (mos < 12)  return `${mos} months ago`;
+  const yrs = Math.floor(mos / 12);
+  return `${yrs} year${yrs === 1 ? '' : 's'} ago`;
+}
+
+function blameDate(ts) {
+  return `<span class="bd-rel">${blameRelative(ts)}</span>`;
 }
 
 function blameLineCount(raw) {
@@ -1068,7 +1086,8 @@ function renderBlameGrid(grid, body, lineOffset, blame) {
     const dateCell = document.createElement('div');
     dateCell.className = 'blame-date-cell';
     if (latest) {
-      dateCell.textContent = blameDate(latest);
+      dateCell.innerHTML = blameDate(latest);
+      dateCell.dataset.blamekey = String(latest);
       dateCell.title = new Date(latest).toLocaleString();
     }
 
@@ -1091,12 +1110,12 @@ function renderBlameGrid(grid, body, lineOffset, blame) {
   // Click to highlight all rows with the same date value
   grid.addEventListener('click', e => {
     const cell = e.target.closest('.blame-date-cell');
-    if (!cell || !cell.textContent.trim()) return;
-    const val = cell.textContent.trim();
+    if (!cell || !cell.dataset.blamekey) return;
+    const val = cell.dataset.blamekey;
     const allDate = grid.querySelectorAll('.blame-date-cell');
     const wasSelected = cell.classList.contains('blame-selected');
     allDate.forEach(c => c.classList.remove('blame-selected'));
-    if (!wasSelected) allDate.forEach(c => { if (c.textContent.trim() === val) c.classList.add('blame-selected'); });
+    if (!wasSelected) allDate.forEach(c => { if (c.dataset.blamekey === val) c.classList.add('blame-selected'); });
   });
 }
 
