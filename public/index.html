@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Claude Memory GUI</title>
+  <link rel="icon" type="image/png" href="claude-code-icon.png" />
   <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
   <link rel="stylesheet" href="styles.css" />
 </head>
@@ -79,7 +80,10 @@
 
   <!-- Editor pane -->
   <div class="editor-pane" id="editor-pane">
-    <div class="empty">Select a file to view</div>
+    <div class="tab-bar" id="tab-bar"></div>
+    <div class="editor-content" id="editor-content">
+      <div class="empty">Select a file to view</div>
+    </div>
   </div>
 
   <div class="resize-handle" data-col="stats" id="stats-resize-handle" style="display:none"><div class="resize-grip"></div></div>
@@ -165,6 +169,94 @@ let cachedConversations = [];
 let cachedMdFiles = [];
 let fileSearchQuery = '';
 
+// ── Tabs ───────────────────────────────────────────────────────────────────
+let openTabs = [];
+let activeTabId = null;
+
+function getActiveTab() { return openTabs.find(t => t.id === activeTabId) || null; }
+function tabIdFor(type, path) { return type + ':' + path; }
+
+function syncToActiveTab() {
+  const tab = getActiveTab();
+  if (!tab || tab.type !== 'file') return;
+  const ta = document.querySelector('#editor-content textarea');
+  if (ta) { tab.content = ta.value; activeFileContent = ta.value; }
+  tab.modified = modified;
+  tab.mode = editorMode;
+}
+
+function renderTabBar() {
+  const bar = document.getElementById('tab-bar');
+  if (!bar) return;
+  bar.innerHTML = '';
+  for (const tab of openTabs) {
+    const item = document.createElement('div');
+    item.className = 'tab-item' + (tab.id === activeTabId ? ' active' : '');
+    const icon = tab.type === 'conv' ? '<img src="claude-code-icon.png" class="tab-claude-icon" />' : '📄';
+    const label = tab.type === 'conv'
+      ? (tab.conv.firstUserMessage || 'Conversation').slice(0, 35)
+      : tab.filename;
+    item.innerHTML = `<span class="tab-icon">${icon}</span><span class="tab-label">${escHtml(label)}</span>${tab.modified ? '<span class="tab-modified">●</span>' : ''}<button class="tab-close" title="Close">×</button>`;
+    item.addEventListener('click', () => activateTab(tab.id));
+    item.addEventListener('mousedown', e => { if (e.button === 1) { e.preventDefault(); closeTab(tab.id); } });
+    item.querySelector('.tab-close').addEventListener('click', e => { e.stopPropagation(); closeTab(tab.id); });
+    bar.appendChild(item);
+  }
+}
+
+function activateTab(id) {
+  if (id === activeTabId) return;
+  syncToActiveTab();
+  activeTabId = id;
+  const tab = getActiveTab();
+  if (!tab) return;
+  if (tab.type === 'file') {
+    activeFilePath = tab.filePath;
+    activeConvPath = null;
+    activeFileContent = tab.content;
+    modified = tab.modified;
+    editorMode = tab.mode;
+    hideConvStatsPanel();
+    renderEditor(tab.filePath, tab.filename, tab.content);
+  } else {
+    activeConvPath = tab.filePath;
+    activeFilePath = null;
+    modified = false;
+    renderChatView(document.getElementById('editor-content'), tab.conv, tab.messages);
+  }
+  renderTabBar();
+  saveTabState();
+}
+
+function closeTab(id) {
+  const idx = openTabs.findIndex(t => t.id === id);
+  if (idx === -1) return;
+  const tab = openTabs[idx];
+  if (tab.modified && !confirm('Close without saving?')) return;
+  if (tab.type === 'file' && tab.modified) clearTimeout(saveTimeout);
+  openTabs.splice(idx, 1);
+  if (activeTabId === id) {
+    const next = openTabs[idx] || openTabs[idx - 1] || null;
+    activeTabId = next ? next.id : null;
+    const ec = document.getElementById('editor-content');
+    if (!next) {
+      activeFilePath = null; activeConvPath = null; modified = false;
+      hideConvStatsPanel();
+      ec.innerHTML = `<div class="empty">${ICON_FILE}Select a file to view</div>`;
+    } else if (next.type === 'file') {
+      activeFilePath = next.filePath; activeConvPath = null;
+      activeFileContent = next.content; modified = next.modified; editorMode = next.mode;
+      hideConvStatsPanel();
+      renderEditor(next.filePath, next.filename, next.content);
+    } else {
+      activeConvPath = next.filePath; activeFilePath = null; modified = false;
+      renderChatView(ec, next.conv, next.messages);
+    }
+  }
+  renderTabBar();
+  saveTabState();
+}
+
 // ── Persisted UI state ─────────────────────────────────────────────────────
 const UI_STORAGE_KEY = 'memgui_ui';
 function loadUIState() {
@@ -173,6 +265,12 @@ function loadUIState() {
 function saveUIState(patch) {
   const s = loadUIState();
   localStorage.setItem(UI_STORAGE_KEY, JSON.stringify({ ...s, ...patch }));
+}
+function saveTabState() {
+  const tabsToSave = openTabs.map(t => ({
+    id: t.id, type: t.type, filePath: t.filePath, filename: t.filename, mode: t.mode || 'preview',
+  }));
+  saveUIState({ savedTabs: tabsToSave, activeTabId, activeProjectId });
 }
 const _ui = loadUIState();
 let fileSort = _ui.fileSort ?? 'modified';
@@ -189,6 +287,51 @@ async function api(method, url, body) {
   const r = await fetch(url, opts);
   if (!r.ok) throw new Error(await r.text());
   return r.json();
+}
+
+// ── Session restore ────────────────────────────────────────────────────────
+async function restoreSessionState() {
+  const s = loadUIState();
+  if (!s.activeProjectId) return;
+
+  // Re-select the saved project (loads files + cachedConversations)
+  await selectProject(s.activeProjectId);
+
+  // Re-open saved tabs
+  const saved = s.savedTabs || [];
+  for (const saved_tab of saved) {
+    if (openTabs.find(t => t.id === saved_tab.id)) continue; // already open
+    if (saved_tab.type === 'file') {
+      try {
+        const { content } = await api('GET', `/api/file?path=${encodeURIComponent(saved_tab.filePath)}`);
+        openTabs.push({ id: saved_tab.id, type: 'file', filePath: saved_tab.filePath, filename: saved_tab.filename, content, modified: false, mode: saved_tab.mode || 'preview' });
+      } catch {}
+    } else if (saved_tab.type === 'conv') {
+      const conv = cachedConversations.find(c => c.filePath === saved_tab.filePath);
+      if (!conv) continue;
+      try {
+        const messages = await api('GET', `/api/conversation?path=${encodeURIComponent(saved_tab.filePath)}`);
+        openTabs.push({ id: saved_tab.id, type: 'conv', filePath: saved_tab.filePath, filename: saved_tab.filename, conv, messages });
+      } catch {}
+    }
+  }
+
+  // Activate saved active tab (or first available)
+  const targetId = openTabs.find(t => t.id === s.activeTabId) ? s.activeTabId : (openTabs[0]?.id || null);
+  if (targetId) {
+    activeTabId = targetId;
+    const tab = getActiveTab();
+    const ec = document.getElementById('editor-content');
+    if (tab.type === 'file') {
+      activeFilePath = tab.filePath; activeConvPath = null;
+      activeFileContent = tab.content; modified = false; editorMode = tab.mode;
+      renderEditor(tab.filePath, tab.filename, tab.content);
+    } else {
+      activeConvPath = tab.filePath; activeFilePath = null;
+      renderChatView(ec, tab.conv, tab.messages);
+    }
+    renderTabBar();
+  }
 }
 
 // ── Boot ───────────────────────────────────────────────────────────────────
@@ -210,6 +353,7 @@ async function boot() {
   renderProjects();
   renderCommandSidebar();
   setupSSE();
+  await restoreSessionState();
 }
 
 // ── Tab switching ──────────────────────────────────────────────────────────
@@ -461,6 +605,7 @@ async function selectProject(id) {
 
   if (id !== activeProjectId) { cachedHealth = []; cachedConversations = []; cachedMdFiles = []; fileSearchQuery = ''; }
   activeProjectId = id;
+  saveUIState({ activeProjectId });
   renderProjects();
 
   const proj = projects.find(p => p.id === id);
@@ -476,6 +621,19 @@ async function selectProject(id) {
   cachedConversations = conversations;
   cachedMdFiles = mdFiles;
   renderFileList(proj, files, cachedHealth, cachedConversations, cachedMdFiles);
+
+  // Refresh content of any open file tabs that belong to this project
+  for (const tab of openTabs) {
+    if (tab.type !== 'file' || tab.modified) continue;
+    try {
+      const { content } = await api('GET', `/api/file?path=${encodeURIComponent(tab.filePath)}`);
+      tab.content = content;
+      if (tab.id === activeTabId) {
+        activeFileContent = content;
+        renderEditor(tab.filePath, tab.filename, content);
+      }
+    } catch {}
+  }
 }
 
 // ── Render file list ───────────────────────────────────────────────────────
@@ -813,16 +971,21 @@ let activeFileContent = '';
 
 // ── Open file ──────────────────────────────────────────────────────────────
 async function openFile(filePath, filename) {
-  if (modified && activeFilePath) {
-    if (!confirm('You have unsaved changes. Discard?')) return;
-  }
-  activeFilePath = filePath;
-  modified = false;
+  const id = tabIdFor('file', filePath);
+  const existing = openTabs.find(t => t.id === id);
+  if (existing) { activateTab(id); return; }
 
+  syncToActiveTab();
   hideConvStatsPanel();
   const { content } = await api('GET', `/api/file?path=${encodeURIComponent(filePath)}`);
-  activeFileContent = content;
+  const tab = { id, type: 'file', filePath, filename, content, modified: false, mode: editorMode };
+  openTabs.push(tab);
+  activeTabId = id;
+  activeFilePath = filePath; activeConvPath = null;
+  activeFileContent = content; modified = false;
+  renderTabBar();
   renderEditor(filePath, filename, content);
+  saveTabState();
 
   if (currentTab === 'commands') {
     renderCommandsMiddlePanel();
@@ -832,7 +995,7 @@ async function openFile(filePath, filename) {
 
 // ── Render editor ──────────────────────────────────────────────────────────
 function renderEditor(filePath, filename, content) {
-  const pane = document.getElementById('editor-pane');
+  const pane = document.getElementById('editor-content');
   pane.innerHTML = '';
 
   // Toolbar
@@ -928,7 +1091,10 @@ function renderTextarea(pane, content) {
   ta.oninput = () => {
     modified = true;
     activeFileContent = ta.value;
+    const tab = getActiveTab();
+    if (tab) { tab.content = ta.value; tab.modified = true; }
     document.getElementById('editor-filename').classList.add('modified');
+    renderTabBar();
     clearTimeout(saveTimeout);
     saveTimeout = setTimeout(saveFile, 2000);
   };
@@ -957,7 +1123,10 @@ async function saveFile() {
   if (ta) activeFileContent = ta.value;
   await api('PUT', '/api/file', { filePath: activeFilePath, content: activeFileContent });
   modified = false;
+  const tab = getActiveTab();
+  if (tab) { tab.modified = false; tab.content = activeFileContent; }
   document.getElementById('editor-filename')?.classList.remove('modified');
+  renderTabBar();
 
   if (currentTab === 'memory' && activeProjectId) {
     await selectProject(activeProjectId);
@@ -974,9 +1143,9 @@ async function saveFile() {
 async function deleteFile(filePath) {
   if (!confirm(`Delete ${filePath.split('/').pop()}?`)) return;
   await api('DELETE', '/api/file', { filePath });
-  activeFilePath = null;
-  modified = false;
-  document.getElementById('editor-pane').innerHTML = `<div class="empty">${ICON_FILE}Select a file to view</div>`;
+  const deletedId = tabIdFor('file', filePath);
+  const deletedTab = openTabs.find(t => t.id === deletedId);
+  if (deletedTab) { deletedTab.modified = false; closeTab(deletedId); }
 
   if (currentTab === 'memory' && activeProjectId) {
     await selectProject(activeProjectId);
@@ -1111,19 +1280,22 @@ function setupSSE() {
 
 // ── Conversation viewer ────────────────────────────────────────────────────
 async function openConversation(conv) {
-  activeConvPath = conv.filePath;
-  activeFilePath = null;
-  modified = false;
+  const id = tabIdFor('conv', conv.filePath);
+  const existing = openTabs.find(t => t.id === id);
+  if (existing) { activateTab(id); return; }
 
-  // Highlight in list
-  document.querySelectorAll('.conv-item').forEach(el => el.classList.remove('active'));
-  event?.currentTarget?.classList.add('active');
-
-  const pane = document.getElementById('editor-pane');
-  pane.innerHTML = `<div class="empty">${ICON_FILE}Loading…</div>`;
+  syncToActiveTab();
+  const ec = document.getElementById('editor-content');
+  ec.innerHTML = `<div class="empty">${ICON_FILE}Loading…</div>`;
 
   const messages = await api('GET', `/api/conversation?path=${encodeURIComponent(conv.filePath)}`);
-  renderChatView(pane, conv, messages);
+  const tab = { id, type: 'conv', filePath: conv.filePath, filename: conv.id, conv, messages };
+  openTabs.push(tab);
+  activeTabId = id;
+  activeConvPath = conv.filePath; activeFilePath = null; modified = false;
+  renderTabBar();
+  renderChatView(ec, conv, messages);
+  saveTabState();
 }
 
 function renderChatView(pane, conv, messages) {
@@ -1207,6 +1379,13 @@ function renderChatMessages(scroll, messages) {
 
 // ── Init ───────────────────────────────────────────────────────────────────
 boot();
+
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState !== 'visible') return;
+  projects = await api('GET', '/api/projects');
+  renderProjects();
+  if (activeProjectId) selectProject(activeProjectId);
+});
 </script>
 </body>
 </html>

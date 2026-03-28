@@ -694,6 +694,55 @@
       flex-direction: column;
       overflow: hidden;
     }
+    .tab-bar {
+      display: flex;
+      overflow-x: auto;
+      flex-shrink: 0;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      scrollbar-width: none;
+    }
+    .tab-bar::-webkit-scrollbar { display: none; }
+    .tab-bar:empty { display: none; }
+    .tab-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 0 10px;
+      height: 34px;
+      font-size: 11px;
+      cursor: pointer;
+      border-right: 1px solid var(--border);
+      border-bottom: 2px solid transparent;
+      color: var(--muted);
+      white-space: nowrap;
+      max-width: 200px;
+      min-width: 80px;
+      transition: color 0.1s, background 0.1s;
+      user-select: none;
+      flex-shrink: 0;
+    }
+    .tab-item:hover { color: var(--text); background: var(--surface2); }
+    .tab-item.active { color: var(--text); border-bottom-color: var(--accent); background: var(--bg); }
+    .tab-icon { font-size: 10px; flex-shrink: 0; }
+    .tab-claude-icon { width: 13px; height: 13px; flex-shrink: 0; display: block; }
+    .tab-label { flex: 1; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+    .tab-modified { color: var(--accent); flex-shrink: 0; font-size: 9px; }
+    .tab-close {
+      background: none; border: none; color: var(--muted); cursor: pointer;
+      font-size: 15px; padding: 0 2px; line-height: 1; border-radius: 3px; flex-shrink: 0;
+      opacity: 0;
+      transition: opacity 0.1s, color 0.1s;
+    }
+    .tab-item:hover .tab-close,
+    .tab-item.active .tab-close { opacity: 1; }
+    .tab-close:hover { color: var(--text); background: var(--border); }
+    .editor-content {
+      flex: 1;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
     .editor-toolbar {
       display: flex;
       align-items: center;
