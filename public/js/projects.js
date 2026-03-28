@@ -232,7 +232,7 @@ async function toggleFilter(key) {
   renderProjects(); // cheap — uses cached projects array, no server call
   if (activeProjectId) {
     const proj = projects.find(p => p.id === activeProjectId);
-    renderFileList(proj, files, cachedHealth, cachedConversations);
+    renderFileList(proj, files, cachedHealth, cachedConversations, cachedMdFiles);
   }
 }
 
@@ -251,7 +251,7 @@ function toggleGroupFiles() {
   const btn = document.getElementById('group-toggle-btn');
   if (btn) btn.classList.toggle('on', groupFiles);
   const proj = projects.find(p => p.id === activeProjectId);
-  if (proj) renderFileList(proj, files, cachedHealth, cachedConversations);
+  if (proj) renderFileList(proj, files, cachedHealth, cachedConversations, cachedMdFiles);
 }
 
 // ── Show-empty toggle ──────────────────────────────────────────────────────
