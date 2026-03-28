@@ -204,6 +204,13 @@ function renderTabBar() {
   }
 }
 
+function syncFileListActive() {
+  const activePath = activeFilePath || activeConvPath || '';
+  document.querySelectorAll('#file-list .file-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.filepath === activePath && activePath !== '');
+  });
+}
+
 function activateTab(id) {
   if (id === activeTabId) return;
   syncToActiveTab();
@@ -225,6 +232,7 @@ function activateTab(id) {
     renderChatView(document.getElementById('editor-content'), tab.conv, tab.messages);
   }
   renderTabBar();
+  syncFileListActive();
   saveTabState();
 }
 
@@ -254,6 +262,7 @@ function closeTab(id) {
     }
   }
   renderTabBar();
+  syncFileListActive();
   saveTabState();
 }
 
@@ -700,70 +709,32 @@ function renderFileList(proj, files, health, conversations = [], mdFiles = []) {
 
   freshSearch.addEventListener('input', e => applyFileSearch(e.target.value));
 
-  // ── Helpers to build DOM items ──────────────────────────────────────────
-  function makeMdFileItem(f) {
-    const isActive = activeFilePath === f.filePath;
+  // ── Unified file item renderer ───────────────────────────────────────────
+  function makeFileItem({ filePath, name, badge, badgeClass, desc, metaLeft, mtime, isActive, searchtext, onclick }) {
     const item = document.createElement('div');
     item.className = 'file-item' + (isActive ? ' active' : '');
-    const badgeClass = 'type-badge type-md';
-    const badge = 'md';
     item.innerHTML = `
       <div class="file-item-name">
-        <span class="file-item-name-text">${escHtml(f.description || f.filename)}</span>
-        <span class="${badgeClass}">${badge}</span>
+        <span class="file-item-name-text">${escHtml(name)}</span>
+        <span class="type-badge${badgeClass ? ' ' + badgeClass : ''}">${badge}</span>
       </div>
+      ${desc ? `<div class="file-item-desc">${escHtml(desc)}</div>` : ''}
       <div class="file-item-meta">
-        <span>${relativeTime(f.mtime)}</span>
+        <span>${metaLeft ? escHtml(String(metaLeft)) : ''}</span>
+        <span>${relativeTime(mtime)}</span>
       </div>
     `;
-    item.onclick = () => openFile(f.filePath, f.filename);
-    item.dataset.mtime = f.mtime || '';
-    item.dataset.name = f.description || f.filename;
-    item.dataset.searchtext = ((f.filename || '') + ' ' + (f.description || '')).toLowerCase();
+    item.onclick = onclick;
+    item.dataset.filepath = filePath || '';
+    item.dataset.mtime = mtime || '';
+    item.dataset.name = name;
+    item.dataset.searchtext = searchtext;
     return item;
   }
 
-  function makeMemoryItem(f) {
-    const item = document.createElement('div');
-    item.className = 'file-item' + (activeFilePath === f.filePath ? ' active' : '');
-    item.innerHTML = `
-      <div class="file-item-name">
-        <span class="file-item-name-text">${escHtml(f.name)}</span>
-        <span class="type-badge">memory</span>
-      </div>
-      <div class="file-item-desc">${escHtml(f.description || f.filename)}</div>
-      <div class="file-item-meta">
-        <span>${f.lineCount} lines</span>
-        <span>${relativeTime(f.mtime)}</span>
-      </div>
-    `;
-    item.onclick = () => openFile(f.filePath, f.filename);
-    item.dataset.mtime = f.mtime || '';
-    item.dataset.name = f.name;
-    item.dataset.searchtext = ((f.name || '') + ' ' + (f.description || '') + ' ' + (f.body || '')).toLowerCase();
-    return item;
-  }
-
-  function makeConvItem(conv) {
-    const item = document.createElement('div');
-    item.className = 'file-item conv-item' + (activeConvPath === conv.filePath ? ' active' : '');
-    item.innerHTML = `
-      <div class="file-item-name">
-        <span class="file-item-name-text">${escHtml(conv.firstUserMessage || 'Empty conversation')}</span>
-        <span class="type-badge">chat</span>
-      </div>
-      <div class="file-item-desc">${escHtml(conv.model || '')}</div>
-      <div class="file-item-meta">
-        <span>${formatBytes(conv.size)}</span>
-        <span>${relativeTime(conv.mtime)}</span>
-      </div>
-    `;
-    item.onclick = () => openConversation(conv);
-    item.dataset.mtime = conv.mtime || '';
-    item.dataset.name = conv.firstUserMessage || '';
-    item.dataset.searchtext = ((conv.firstUserMessage || '') + ' ' + (conv.cwd || '')).toLowerCase();
-    return item;
-  }
+  const makeMdFileItem   = f    => makeFileItem({ filePath: f.filePath, name: f.description || f.filename, badge: 'md', badgeClass: 'type-md', desc: null, metaLeft: null, mtime: f.mtime, isActive: activeFilePath === f.filePath, searchtext: ((f.filename || '') + ' ' + (f.description || '')).toLowerCase(), onclick: () => openFile(f.filePath, f.filename) });
+  const makeMemoryItem   = f    => makeFileItem({ filePath: f.filePath, name: f.name, badge: 'memory', desc: f.description || f.filename, metaLeft: `${f.lineCount} lines`, mtime: f.mtime, isActive: activeFilePath === f.filePath, searchtext: ((f.name || '') + ' ' + (f.description || '') + ' ' + (f.body || '')).toLowerCase(), onclick: () => openFile(f.filePath, f.filename) });
+  const makeConvItem     = conv => makeFileItem({ filePath: conv.filePath, name: conv.firstUserMessage || 'Empty conversation', badge: 'chat', desc: conv.model || null, metaLeft: formatBytes(conv.size), mtime: conv.mtime, isActive: activeConvPath === conv.filePath, searchtext: ((conv.firstUserMessage || '') + ' ' + (conv.cwd || '')).toLowerCase(), onclick: () => openConversation(conv) });
 
   const sortedMemory = [...files]
     .filter(f => f.filename !== 'MEMORY.md')

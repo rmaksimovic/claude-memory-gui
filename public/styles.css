@@ -319,8 +319,6 @@
     #fp-conversations.active { color: var(--project); background: color-mix(in srgb, var(--project) 10%, var(--bg)); }
     .filter-item.active .filter-dot { opacity: 1; }
 
-    /* ── Conversation list ── */
-    .conv-item.active { border-left-color: var(--accent); background: var(--surface2); }
     .section-divider { font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); padding: 10px 12px; border-top: 1px solid var(--border); margin-top: 4px; cursor: pointer; display: flex; align-items: center; gap: 5px; user-select: none; background: color-mix(in srgb, var(--surface2) 40%, var(--bg)); }
     .section-divider:first-child { border-top: none; margin-top: 0; }
     .section-divider:hover { color: var(--text); background: color-mix(in srgb, var(--surface2) 60%, var(--bg)); }
