@@ -130,7 +130,7 @@ function blameLineCount(raw) {
   return n + (raw.endsWith('\n') ? 0 : 1);
 }
 
-function renderBlameGrid(grid, body, lineOffset, blame) {
+function renderBlameGrid(grid, body, lineOffset, blame, skipFirstCell = false) {
   const tokens = marked.lexer(body);
   let line = lineOffset;
   const pairs = [];
@@ -161,8 +161,10 @@ function renderBlameGrid(grid, body, lineOffset, blame) {
   }
 
   if (pairs.length) {
-    pairs[0][0].classList.add('first-cell');
-    pairs[0][1].classList.add('first-cell');
+    if (!skipFirstCell) {
+      pairs[0][0].classList.add('first-cell');
+      pairs[0][1].classList.add('first-cell');
+    }
     pairs[pairs.length - 1][0].classList.add('last-cell');
     pairs[pairs.length - 1][1].classList.add('last-cell');
   }
@@ -205,10 +207,24 @@ function renderPreview(pane, content, filePath) {
     if (!blame || !scroll.isConnected) return;
     // Replace card wrapper with gutter-left layout directly in scroll
     scroll.innerHTML = '';
-    if (fmMatch) scroll.appendChild(buildFrontmatterBlock(fmMatch[1]));
     const grid = document.createElement('div');
     grid.className = 'blame-grid';
-    renderBlameGrid(grid, body, fmLineCount, blame);
+    if (fmMatch) {
+      const fmDateCell = document.createElement('div');
+      fmDateCell.className = 'blame-date-cell first-cell';
+      const fmContentCell = document.createElement('div');
+      fmContentCell.className = 'blame-content-cell md-preview first-cell';
+      fmContentCell.style.paddingBottom = '8px';
+      const fmBlock = buildFrontmatterBlock(fmMatch[1]);
+      fmBlock.style.border = 'none';
+      fmBlock.style.background = 'none';
+      fmBlock.style.padding = '0';
+      fmBlock.style.margin = '0';
+      fmContentCell.appendChild(fmBlock);
+      grid.appendChild(fmDateCell);
+      grid.appendChild(fmContentCell);
+    }
+    renderBlameGrid(grid, body, fmLineCount, blame, !!fmMatch);
     scroll.appendChild(grid);
   }).catch(() => {});
 }
