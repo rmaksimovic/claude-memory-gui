@@ -980,12 +980,12 @@ function renderEditor(filePath, filename, content) {
   fnEl.textContent = filePath;
 
   const blameBtn = document.createElement('button');
-  blameBtn.className = 'mode-btn' + (blameGutterVisible ? ' active' : '');
-  blameBtn.textContent = 'Blame';
+  blameBtn.className = 'group-toggle-btn' + (blameGutterVisible ? ' on' : '');
+  blameBtn.innerHTML = '<span class="gtb-dot"></span>Blame';
   blameBtn.onclick = () => {
     blameGutterVisible = !blameGutterVisible;
     saveUIState({ blameGutterVisible });
-    blameBtn.classList.toggle('active', blameGutterVisible);
+    blameBtn.classList.toggle('on', blameGutterVisible);
     pane.classList.toggle('blame-hidden', !blameGutterVisible);
   };
 
