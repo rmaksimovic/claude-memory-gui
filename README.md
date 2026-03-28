@@ -58,13 +58,80 @@ Alternatively, add it to your shell profile so it's always available:
 alias memory-gui='cd ~/path/to/claude-memory-gui && npm start & sleep 1 && open http://localhost:3737'
 ```
 
+## Recommended: track your memory files with git
+
+Your Claude memory files live in `~/.claude/` and can quietly drift — memories get added, updated, or removed across dozens of sessions with no history. Putting that folder under git gives you a full audit trail of what Claude remembers about your projects.
+
+```bash
+cd ~/.claude
+git init
+```
+
+Then create `~/.claude/.gitignore` to track only the meaningful files and ignore ephemeral data:
+
+```gitignore
+# Ignore everything by default
+*
+
+# Track memory files across all projects
+!projects/
+!projects/*/
+!projects/*/memory/
+!projects/*/memory/**
+!projects/*/CLAUDE.md
+
+# Track global memory
+!memory/
+!memory/**
+
+# Track custom commands
+!commands/
+!commands/**
+
+# Track settings (not local overrides)
+!settings.json
+```
+
+Make an initial commit:
+
+```bash
+git add -A
+git commit -m "Initial memory snapshot"
+```
+
+From then on, commit after sessions where Claude made meaningful changes:
+
+```bash
+cd ~/.claude && git add -A && git commit -m "Updated receipApp memory after feature planning"
+```
+
+You can also push to a private remote repository to back up your memory across machines.
+
+> The Memory GUI already reads git history from `~/.claude/` — if you have the repo set up, the blame gutter in the file editor will show when each part of a memory was last written.
+
 ## Project structure
 
 ```
 claude-memory-gui/
-├── server.js        # Express API — reads ~/.claude/, serves the app
+├── server.js          # Thin Express entry point
+├── lib/               # Backend modules
+│   ├── config.js      # Pricing table, constants
+│   ├── paths.js       # Path resolution helpers
+│   ├── fileUtils.js   # File I/O, frontmatter parsing
+│   ├── projects.js    # Project listing, memory index
+│   ├── health.js      # Health checks, MEMORY.md sync
+│   ├── conversations.js
+│   ├── commands.js
+│   ├── git.js         # git blame / git log integration
+│   └── sse.js         # Live file-watching via SSE
 ├── public/
-│   └── index.html   # Single-page UI (vanilla JS, no build step)
+│   ├── index.html     # Markup only
+│   ├── styles.css
+│   └── js/            # Frontend modules (vanilla JS)
+│       ├── api.js · state.js · tabs.js · projects.js
+│       ├── files.js · editor.js · commands.js
+│       ├── conversations.js · modals.js · boot.js
+│       └── utils.js · resize.js · stats.js
 └── package.json
 ```
 
