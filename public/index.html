@@ -1085,7 +1085,7 @@ function renderBlameGrid(grid, body, lineOffset, blame) {
     }
 
     const contentCell = document.createElement('div');
-    contentCell.className = 'blame-content-cell';
+    contentCell.className = 'blame-content-cell md-preview';
     contentCell.innerHTML = marked.parse(token.raw);
 
     grid.appendChild(dateCell);
@@ -1116,13 +1116,14 @@ function renderPreview(pane, content, filePath) {
 
   if (!filePath) return;
   api('GET', `/api/blame?path=${encodeURIComponent(filePath)}`).then(blame => {
-    if (!blame || !div.isConnected) return;
-    div.innerHTML = '';
-    if (fmMatch) div.appendChild(buildFrontmatterBlock(fmMatch[1]));
+    if (!blame || !scroll.isConnected) return;
+    // Replace card wrapper with gutter-left layout directly in scroll
+    scroll.innerHTML = '';
+    if (fmMatch) scroll.appendChild(buildFrontmatterBlock(fmMatch[1]));
     const grid = document.createElement('div');
     grid.className = 'blame-grid';
     renderBlameGrid(grid, body, fmLineCount, blame);
-    div.appendChild(grid);
+    scroll.appendChild(grid);
   }).catch(() => {});
 }
 
