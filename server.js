@@ -9,7 +9,7 @@ const { listProjects, listMemoryFiles, buildSearchIndex } = require('./lib/proje
 const { syncMemoryIndex, healthCheck } = require('./lib/health');
 const { listConversations, parseFullConversation } = require('./lib/conversations');
 const { GLOBAL_COMMANDS_DIR, PLANS_DIR, listCommands } = require('./lib/commands');
-const { gitInfoHandler, blameHandler } = require('./lib/git');
+const { gitInfoHandler, blameHandler, gitAutoTrack } = require('./lib/git');
 const { setupSSE } = require('./lib/sse');
 
 const app = express();
@@ -77,6 +77,7 @@ app.post('/api/projects/:id/memories', (req, res) => {
   if (fs.existsSync(filePath)) return res.status(409).json({ error: 'File already exists' });
   fs.writeFileSync(filePath, content, 'utf8');
   syncMemoryIndex(proj.memoryDir);
+  gitAutoTrack(filePath, `Add memory: ${path.basename(filePath)}`);
   res.json({ ok: true, filePath });
 });
 
@@ -179,6 +180,7 @@ app.post('/api/commands', (req, res) => {
   const filePath = path.join(GLOBAL_COMMANDS_DIR, filename);
   if (fs.existsSync(filePath)) return res.status(409).json({ error: 'Command already exists' });
   fs.writeFileSync(filePath, content, 'utf8');
+  gitAutoTrack(filePath, `Add command: ${filename}`);
   res.json({ ok: true, filePath });
 });
 
