@@ -85,7 +85,7 @@ function renderFileList(proj, files, health, conversations = [], mdFiles = []) {
     return item;
   }
 
-  const makeMdFileItem   = f    => makeFileItem({ filePath: f.filePath, name: f.description || f.filename, badge: 'md', badgeClass: 'type-md', desc: null, metaLeft: null, mtime: f.mtime, isActive: activeFilePath === f.filePath, searchtext: ((f.filename || '') + ' ' + (f.description || '')).toLowerCase(), onclick: () => openFile(f.filePath, f.filename) });
+  const makeMdFileItem   = f    => makeFileItem({ filePath: f.filePath, name: f.filename, badge: 'md', badgeClass: 'type-md', desc: f.snippet || f.description || null, metaLeft: f.lineCount ? `${f.lineCount} lines` : null, mtime: f.mtime, isActive: activeFilePath === f.filePath, searchtext: ((f.filename || '') + ' ' + (f.description || '') + ' ' + (f.snippet || '')).toLowerCase(), onclick: () => openFile(f.filePath, f.filename) });
   const makeMemoryItem   = f    => makeFileItem({ filePath: f.filePath, name: f.name, badge: 'memory', desc: f.description || f.filename, metaLeft: `${f.lineCount} lines`, mtime: f.mtime, isActive: activeFilePath === f.filePath, searchtext: ((f.name || '') + ' ' + (f.description || '') + ' ' + (f.body || '')).toLowerCase(), onclick: () => openFile(f.filePath, f.filename) });
   const makeConvItem     = conv => makeFileItem({ filePath: conv.filePath, name: conv.firstUserMessage || 'Empty conversation', badge: 'chat', desc: conv.model || null, metaLeft: formatBytes(conv.size), mtime: conv.mtime, isActive: activeConvPath === conv.filePath, searchtext: ((conv.firstUserMessage || '') + ' ' + (conv.cwd || '')).toLowerCase(), onclick: () => openConversation(conv) });
 
