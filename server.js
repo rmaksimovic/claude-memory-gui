@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const chokidar = require('chokidar');
+const { execFile } = require('child_process');
 
 const app = express();
 const PORT = 3737;
@@ -583,6 +584,29 @@ app.post('/api/commands', (req, res) => {
   if (fs.existsSync(filePath)) return res.status(409).json({ error: 'Command already exists' });
   fs.writeFileSync(filePath, content, 'utf8');
   res.json({ ok: true, filePath });
+});
+
+// ── Git info ───────────────────────────────────────────────────────────────
+
+app.get('/api/gitinfo', (req, res) => {
+  const filePath = req.query.path;
+  if (!filePath) return res.status(400).json({ error: 'Missing path' });
+  const dir = path.dirname(filePath);
+  const file = path.basename(filePath);
+  execFile('git', ['-C', dir, 'log', '--follow', '-1', '--format=%H%n%an%n%ct%n%s', '--', file],
+    { timeout: 3000 },
+    (err, stdout) => {
+      if (err || !stdout.trim()) return res.json(null);
+      const lines = stdout.trim().split('\n');
+      if (lines.length < 4) return res.json(null);
+      res.json({
+        hash: lines[0].slice(0, 7),
+        author: lines[1],
+        timestamp: parseInt(lines[2], 10) * 1000,
+        subject: lines.slice(3).join(' '),
+      });
+    }
+  );
 });
 
 // ── SSE for live file watching ─────────────────────────────────────────────

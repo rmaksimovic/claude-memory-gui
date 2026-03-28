@@ -749,6 +749,22 @@
       border-bottom: 1px solid var(--border);
       flex-shrink: 0;
     }
+    .git-info-bar {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      padding: 3px 12px;
+      font-size: 10px;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+    .git-info-bar.loaded { display: flex; }
+    .git-hash { font-family: monospace; opacity: 0.6; flex-shrink: 0; }
+    .git-subject { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .git-meta { opacity: 0.6; white-space: nowrap; flex-shrink: 0; }
     .editor-filename {
       font-size: 12px;
       color: var(--muted);

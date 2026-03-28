@@ -1004,6 +1004,17 @@ function renderEditor(filePath, filename, content) {
   }
   pane.appendChild(toolbar);
 
+  // Git info bar (async — inserts itself when ready)
+  const gitBar = document.createElement('div');
+  gitBar.className = 'git-info-bar';
+  pane.appendChild(gitBar);
+  api('GET', `/api/gitinfo?path=${encodeURIComponent(filePath)}`).then(info => {
+    if (!info || !gitBar.isConnected) return;
+    const ago = relativeTime(new Date(info.timestamp));
+    gitBar.innerHTML = `<span class="git-hash">${escHtml(info.hash)}</span><span class="git-subject">${escHtml(info.subject)}</span><span class="git-meta">${escHtml(info.author)} · ${ago}</span>`;
+    gitBar.classList.add('loaded');
+  }).catch(() => {});
+
   if (editorMode === 'preview') {
     renderPreview(pane, content);
   } else {
