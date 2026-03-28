@@ -99,15 +99,18 @@ git add -A
 git commit -m "Initial memory snapshot"
 ```
 
-From then on, commit after sessions where Claude made meaningful changes:
-
-```bash
-cd ~/.claude && git add -A && git commit -m "Updated receipApp memory after feature planning"
-```
-
 You can also push to a private remote repository to back up your memory across machines.
 
-> The Memory GUI already reads git history from `~/.claude/` — if you have the repo set up, the blame gutter in the file editor will show when each part of a memory was last written.
+### Automatic git tracking
+
+Once `~/.claude` is a git repository, the Memory GUI takes care of committing for you:
+
+- **New memory or command file** — automatically staged and committed the moment it's created (`Add memory: filename.md`)
+- **File save** — automatically committed every time you save a file through the editor (`Update: filename.md`)
+
+This means the **blame gutter** in the file editor always reflects real edit history — each block shows when it was last changed, not just when the file was first created. No manual committing needed.
+
+> If `~/.claude` is not a git repo, auto-tracking is silently skipped and everything still works normally.
 
 ## Project structure
 
