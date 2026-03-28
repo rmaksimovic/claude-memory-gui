@@ -891,29 +891,38 @@
     .blame-grid {
       display: grid;
       grid-template-columns: 54px 1fr;
+      column-gap: 10px;
     }
+    /* Date card — left column */
     .blame-date-cell {
       font-size: 9px;
       color: var(--muted);
-      opacity: 0.45;
-      padding: 0.75em 8px 0 0;
+      opacity: 0.55;
+      padding: 0.6em 8px 0.6em 8px;
       text-align: right;
       white-space: nowrap;
-      border-right: 1px solid var(--border);
       cursor: default;
-      align-self: start;
+      background: var(--bg);
+      border-left: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+      align-self: stretch;
     }
+    .blame-date-cell.first-cell { border-top: 1px solid var(--border); border-radius: 8px 8px 0 0; padding-top: 16px; }
+    .blame-date-cell.last-cell  { border-bottom: 1px solid var(--border); border-radius: 0 0 8px 8px; padding-bottom: 16px; }
     .blame-date-cell:hover { opacity: 1; }
-    /* content cells: scoped md-preview styles but no card box */
+    /* Content card — right column, inherits md-preview element styles but overrides box */
     .blame-content-cell.md-preview {
-      padding: 0 0 0 16px;
-      background: none;
       border: none;
+      border-left: 1px solid var(--border);
+      border-right: 1px solid var(--border);
       border-radius: 0;
+      padding: 0 24px;
       max-width: none;
-      align-self: auto;
       min-width: 0;
+      align-self: auto;
     }
+    .blame-content-cell.md-preview.first-cell { border-top: 1px solid var(--border); border-radius: 8px 8px 0 0; padding-top: 20px; }
+    .blame-content-cell.md-preview.last-cell  { border-bottom: 1px solid var(--border); border-radius: 0 0 8px 8px; padding-bottom: 20px; }
     .blame-content-cell h1, .blame-content-cell h2, .blame-content-cell h3,
     .blame-content-cell h4, .blame-content-cell h5, .blame-content-cell h6 { margin: 0.5em 0 0.3em; }
     .blame-content-cell p { margin: 0.4em 0; }

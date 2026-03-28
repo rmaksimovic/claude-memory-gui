@@ -1068,6 +1068,8 @@ function blameLineCount(raw) {
 function renderBlameGrid(grid, body, lineOffset, blame) {
   const tokens = marked.lexer(body);
   let line = lineOffset;
+  const pairs = [];
+
   for (const token of tokens) {
     const lc = blameLineCount(token.raw);
     if (token.type === 'space') { line += lc; continue; }
@@ -1088,10 +1090,17 @@ function renderBlameGrid(grid, body, lineOffset, blame) {
     contentCell.className = 'blame-content-cell md-preview';
     contentCell.innerHTML = marked.parse(token.raw);
 
-    grid.appendChild(dateCell);
-    grid.appendChild(contentCell);
+    pairs.push([dateCell, contentCell]);
     line += lc;
   }
+
+  if (pairs.length) {
+    pairs[0][0].classList.add('first-cell');
+    pairs[0][1].classList.add('first-cell');
+    pairs[pairs.length - 1][0].classList.add('last-cell');
+    pairs[pairs.length - 1][1].classList.add('last-cell');
+  }
+  for (const [d, c] of pairs) { grid.appendChild(d); grid.appendChild(c); }
 }
 
 function renderPreview(pane, content, filePath) {
