@@ -917,7 +917,7 @@
       border-right: 1px solid var(--border);
       border-radius: 0;
       padding: 0 24px;
-      max-width: none;
+      max-width: 900px;
       min-width: 0;
       align-self: auto;
     }
