@@ -7,7 +7,7 @@ const path = require('path');
 const { readFileOrNull, ensureDir, safeReadDir, listProjectMdFiles } = require('./lib/fileUtils');
 const { listProjects, listMemoryFiles, buildSearchIndex } = require('./lib/projects');
 const { syncMemoryIndex, healthCheck } = require('./lib/health');
-const { listConversations, parseFullConversation } = require('./lib/conversations');
+const { listConversations, parseFullConversation, forkConversation, summarizeConversation } = require('./lib/conversations');
 const { GLOBAL_COMMANDS_DIR, PLANS_DIR, listCommands } = require('./lib/commands');
 const { gitInfoHandler, blameHandler, gitAutoTrack } = require('./lib/git');
 const { setupSSE } = require('./lib/sse');
@@ -155,6 +155,30 @@ app.get('/api/conversation', (req, res) => {
   const filePath = req.query.path;
   if (!filePath) return res.status(400).json({ error: 'Missing path' });
   res.json(parseFullConversation(filePath));
+});
+
+// Fork a conversation at a specific message
+app.post('/api/fork-conversation', (req, res) => {
+  const { filePath, beforeMessageUuid } = req.body;
+  if (!filePath || !beforeMessageUuid) return res.status(400).json({ error: 'Missing filePath or beforeMessageUuid' });
+  try {
+    const result = forkConversation(filePath, beforeMessageUuid);
+    res.json(result);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// Summarize a conversation using claude -p
+app.post('/api/summarize-conversation', async (req, res) => {
+  const { filePath } = req.body;
+  if (!filePath) return res.status(400).json({ error: 'Missing filePath' });
+  try {
+    const summary = await summarizeConversation(filePath);
+    res.json({ summary });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // Project MD files

@@ -38,9 +38,46 @@ function renderChatView(pane, conv, messages) {
     else hideConvStatsPanel();
   });
 
+  // Summary panel (hidden until generated)
+  const summaryPanel = document.createElement('div');
+  summaryPanel.className = 'conv-summary-panel';
+  summaryPanel.style.display = 'none';
+  pane.appendChild(summaryPanel);
+
+  // Summarize button
+  const summarizeBtn = document.createElement('button');
+  summarizeBtn.className = 'summarize-btn';
+  summarizeBtn.textContent = '✦ Summarize';
+  summarizeBtn.addEventListener('click', async () => {
+    summarizeBtn.disabled = true;
+    summarizeBtn.textContent = 'Summarizing…';
+    summaryPanel.style.display = 'none';
+    try {
+      const { summary } = await api('POST', '/api/summarize-conversation', { filePath: conv.filePath });
+      summaryPanel.innerHTML = `
+        <div class="conv-summary-header">
+          <span class="conv-summary-title">✦ Summary</span>
+          <button class="conv-summary-close" title="Dismiss">×</button>
+        </div>
+        <div class="conv-summary-body">${marked.parse(summary)}</div>
+      `;
+      summaryPanel.style.display = '';
+      summaryPanel.querySelector('.conv-summary-close').addEventListener('click', () => {
+        summaryPanel.style.display = 'none';
+      });
+    } catch (e) {
+      summaryPanel.innerHTML = `<div class="conv-summary-error">Failed: ${escHtml(e.message)}</div>`;
+      summaryPanel.style.display = '';
+    } finally {
+      summarizeBtn.disabled = false;
+      summarizeBtn.textContent = '✦ Summarize';
+    }
+  });
+  toolbar.appendChild(summarizeBtn);
+
   const scroll = document.createElement('div');
   scroll.className = 'chat-scroll';
-  renderChatMessages(scroll, messages);
+  renderChatMessages(scroll, messages, conv.filePath);
   pane.appendChild(scroll);
   scroll.scrollTop = scroll.scrollHeight;
 
@@ -48,16 +85,30 @@ function renderChatView(pane, conv, messages) {
   else hideConvStatsPanel();
 }
 
-function renderChatMessages(scroll, messages) {
+function renderChatMessages(scroll, messages, filePath) {
   for (const record of messages) {
     const isUser = record.type === 'user';
     const turn = document.createElement('div');
     turn.className = 'chat-turn';
 
+    const header = document.createElement('div');
+    header.className = 'chat-turn-header';
+
     const roleEl = document.createElement('div');
     roleEl.className = 'chat-role';
     roleEl.textContent = isUser ? 'You' : 'Claude';
-    turn.appendChild(roleEl);
+    header.appendChild(roleEl);
+
+    if (filePath && record.uuid) {
+      const forkBtn = document.createElement('button');
+      forkBtn.className = 'chat-fork-btn';
+      forkBtn.title = 'Fork conversation from here';
+      forkBtn.textContent = '⎇ Fork from here';
+      forkBtn.addEventListener('click', () => forkFromMessage(filePath, record.uuid));
+      header.appendChild(forkBtn);
+    }
+
+    turn.appendChild(header);
 
     const bubble = document.createElement('div');
     bubble.className = `chat-bubble ${isUser ? 'chat-bubble-user' : 'chat-bubble-assistant'}`;
@@ -94,4 +145,35 @@ function renderChatMessages(scroll, messages) {
 
     scroll.appendChild(turn);
   }
+}
+
+async function forkFromMessage(filePath, beforeMessageUuid) {
+  const result = await api('POST', '/api/fork-conversation', { filePath, beforeMessageUuid });
+  if (!result) return;
+
+  const cmd = `claude --resume ${result.newSessionId}`;
+
+  // Show modal with resume command
+  const overlay = document.createElement('div');
+  overlay.className = 'fork-modal-overlay';
+  overlay.innerHTML = `
+    <div class="fork-modal">
+      <div class="fork-modal-title">⎇ Conversation forked</div>
+      <p class="fork-modal-desc">A new conversation file has been created with the history up to this point. Resume it with:</p>
+      <div class="fork-cmd-row">
+        <code class="fork-cmd">${escHtml(cmd)}</code>
+        <button class="fork-copy-btn" title="Copy">Copy</button>
+      </div>
+      <p class="fork-modal-path" title="${escHtml(result.newFilePath)}">${escHtml(result.newFilePath)}</p>
+      <button class="fork-modal-close">Done</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  overlay.querySelector('.fork-copy-btn').addEventListener('click', () => {
+    navigator.clipboard.writeText(cmd);
+    overlay.querySelector('.fork-copy-btn').textContent = 'Copied!';
+  });
+  overlay.querySelector('.fork-modal-close').addEventListener('click', () => overlay.remove());
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
 }

@@ -327,6 +327,69 @@
     .section-body.collapsed { display: none; }
 
     /* ── Chat view ── */
+    /* ── Summarize button ── */
+    .summarize-btn {
+      margin-left: 8px;
+      padding: 4px 10px;
+      font-size: 11px;
+      border-radius: 6px;
+      border: 1px solid var(--accent);
+      background: transparent;
+      color: var(--accent);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s;
+    }
+    .summarize-btn:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+    .summarize-btn:disabled { opacity: 0.5; cursor: default; }
+
+    /* ── Summary panel ── */
+    .conv-summary-panel {
+      margin: 0 24px 0;
+      border: 1px solid var(--accent);
+      border-radius: 10px;
+      background: color-mix(in srgb, var(--accent) 5%, var(--surface));
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .conv-summary-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 14px;
+      border-bottom: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
+    }
+    .conv-summary-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--accent);
+      letter-spacing: 0.03em;
+    }
+    .conv-summary-close {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 16px;
+      line-height: 1;
+      padding: 0 2px;
+    }
+    .conv-summary-close:hover { color: var(--text); }
+    .conv-summary-body {
+      padding: 12px 16px;
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--text);
+    }
+    .conv-summary-body ul { margin: 0; padding-left: 18px; }
+    .conv-summary-body li { margin-bottom: 4px; }
+    .conv-summary-body p { margin: 0 0 6px; }
+    .conv-summary-error {
+      padding: 12px 16px;
+      font-size: 12px;
+      color: var(--err);
+    }
+
     .chat-scroll {
       flex: 1;
       overflow-y: auto;
