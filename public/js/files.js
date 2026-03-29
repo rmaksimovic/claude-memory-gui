@@ -89,6 +89,9 @@ function renderFileList(proj, files, health, conversations = [], mdFiles = []) {
   const makeMemoryItem   = f    => makeFileItem({ filePath: f.filePath, name: f.name, badge: 'memory', desc: f.description || f.filename, metaLeft: `${f.lineCount} lines`, mtime: f.mtime, isActive: activeFilePath === f.filePath, searchtext: ((f.name || '') + ' ' + (f.description || '') + ' ' + (f.body || '')).toLowerCase(), onclick: () => openFile(f.filePath, f.filename) });
   const makeConvItem     = conv => makeFileItem({ filePath: conv.filePath, name: conv.firstUserMessage || 'Empty conversation', badge: 'chat', desc: conv.model || null, metaLeft: formatBytes(conv.size), mtime: conv.mtime, isActive: activeConvPath === conv.filePath, searchtext: ((conv.firstUserMessage || '') + ' ' + (conv.cwd || '')).toLowerCase(), onclick: () => openConversation(conv) });
 
+  const memoryIndex = files.find(f => f.filename === 'MEMORY.md') || null;
+  const makeMemoryIndexItem = f => makeFileItem({ filePath: f.filePath, name: 'MEMORY.md', badge: 'index', badgeClass: 'type-index', desc: 'Auto-generated memory index', metaLeft: `${f.lineCount} lines`, mtime: f.mtime, isActive: activeFilePath === f.filePath, searchtext: 'memory.md index', onclick: () => openFile(f.filePath, f.filename) });
+
   const sortedMemory = [...files]
     .filter(f => f.filename !== 'MEMORY.md')
     .sort((a, b) => fileSort === 'modified'
@@ -150,9 +153,11 @@ function renderFileList(proj, files, health, conversations = [], mdFiles = []) {
     if (activeFilters.has('memory')) {
       if (showDividers) {
         makeCollapsibleSection('memory', `Memory · ${memCount}`, body => {
+          if (memoryIndex) body.appendChild(makeMemoryIndexItem(memoryIndex));
           for (const f of sortedMemory) body.appendChild(makeMemoryItem(f));
         });
       } else {
+        if (memoryIndex) el.appendChild(makeMemoryIndexItem(memoryIndex));
         for (const f of sortedMemory) el.appendChild(makeMemoryItem(f));
       }
     }
@@ -176,6 +181,7 @@ function renderFileList(proj, files, health, conversations = [], mdFiles = []) {
       }
     }
     if (activeFilters.has('memory')) {
+      if (memoryIndex) allItems.push({ el: makeMemoryIndexItem(memoryIndex), mtime: new Date(memoryIndex.mtime), name: 'MEMORY.md' });
       for (const f of files.filter(f => f.filename !== 'MEMORY.md')) {
         allItems.push({ el: makeMemoryItem(f), mtime: new Date(f.mtime), name: f.name });
       }
