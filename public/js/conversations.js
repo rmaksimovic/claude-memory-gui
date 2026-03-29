@@ -41,13 +41,20 @@ function renderChatView(pane, conv, messages) {
   // Look up the tab so we can persist the summary across tab switches
   const tab = openTabs.find(t => t.filePath === conv.filePath && t.type === 'conv');
 
+  function normaliseSummary(text) {
+    // Claude often returns "• bullet" lines — convert to markdown list so marked renders them as <li>
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    const mdLines = lines.map(l => /^[•·▪▸\-]/.test(l) ? '- ' + l.replace(/^[•·▪▸\-]\s*/, '') : l);
+    return mdLines.join('\n');
+  }
+
   function showSummary(text) {
     summaryPanel.innerHTML = `
       <div class="conv-summary-header">
         <span class="conv-summary-title">✦ Summary</span>
         <button class="conv-summary-close" title="Dismiss">×</button>
       </div>
-      <div class="conv-summary-body">${marked.parse(text)}</div>
+      <div class="conv-summary-body">${marked.parse(normaliseSummary(text))}</div>
     `;
     summaryPanel.style.display = '';
     summaryPanel.querySelector('.conv-summary-close').addEventListener('click', () => {
