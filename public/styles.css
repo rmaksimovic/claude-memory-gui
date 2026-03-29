@@ -350,7 +350,7 @@
       width: calc(100% - 48px);
       border: 1px solid color-mix(in srgb, #3b9ede 40%, transparent);
       border-radius: 12px;
-      background: color-mix(in srgb, #3b9ede 6%, var(--surface));
+      background: var(--preview-code-bg);
       overflow: hidden;
       flex-shrink: 0;
     }
