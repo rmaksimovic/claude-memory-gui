@@ -202,9 +202,13 @@ function renderPreview(pane, content, filePath) {
   scroll.appendChild(div);
   pane.appendChild(scroll);
 
+  // Ensure the scroll container always starts at the top
+  scroll.scrollTop = 0;
+
   if (!filePath) return;
   api('GET', `/api/blame?path=${encodeURIComponent(filePath)}`).then(blame => {
     if (!blame || !scroll.isConnected) return;
+    const savedScrollTop = scroll.scrollTop;
     // Replace card wrapper with gutter-left layout directly in scroll
     scroll.innerHTML = '';
     const grid = document.createElement('div');
@@ -226,6 +230,7 @@ function renderPreview(pane, content, filePath) {
     }
     renderBlameGrid(grid, body, fmLineCount, blame, !!fmMatch);
     scroll.appendChild(grid);
+    scroll.scrollTop = savedScrollTop;
   }).catch(() => {});
 }
 
