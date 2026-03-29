@@ -38,11 +38,32 @@ function renderChatView(pane, conv, messages) {
     else hideConvStatsPanel();
   });
 
-  // Summary panel (hidden until generated)
+  // Look up the tab so we can persist the summary across tab switches
+  const tab = openTabs.find(t => t.filePath === conv.filePath && t.type === 'conv');
+
+  function showSummary(text) {
+    summaryPanel.innerHTML = `
+      <div class="conv-summary-header">
+        <span class="conv-summary-title">✦ Summary</span>
+        <button class="conv-summary-close" title="Dismiss">×</button>
+      </div>
+      <div class="conv-summary-body">${marked.parse(text)}</div>
+    `;
+    summaryPanel.style.display = '';
+    summaryPanel.querySelector('.conv-summary-close').addEventListener('click', () => {
+      summaryPanel.style.display = 'none';
+      if (tab) tab.summary = null;
+    });
+  }
+
+  // Summary panel
   const summaryPanel = document.createElement('div');
   summaryPanel.className = 'conv-summary-panel';
   summaryPanel.style.display = 'none';
   pane.appendChild(summaryPanel);
+
+  // Restore summary if it was already generated for this tab
+  if (tab?.summary) showSummary(tab.summary);
 
   // Summarize button
   const summarizeBtn = document.createElement('button');
@@ -54,17 +75,8 @@ function renderChatView(pane, conv, messages) {
     summaryPanel.style.display = 'none';
     try {
       const { summary } = await api('POST', '/api/summarize-conversation', { filePath: conv.filePath });
-      summaryPanel.innerHTML = `
-        <div class="conv-summary-header">
-          <span class="conv-summary-title">✦ Summary</span>
-          <button class="conv-summary-close" title="Dismiss">×</button>
-        </div>
-        <div class="conv-summary-body">${marked.parse(summary)}</div>
-      `;
-      summaryPanel.style.display = '';
-      summaryPanel.querySelector('.conv-summary-close').addEventListener('click', () => {
-        summaryPanel.style.display = 'none';
-      });
+      if (tab) tab.summary = summary;
+      showSummary(summary);
     } catch (e) {
       summaryPanel.innerHTML = `<div class="conv-summary-error">Failed: ${escHtml(e.message)}</div>`;
       summaryPanel.style.display = '';
