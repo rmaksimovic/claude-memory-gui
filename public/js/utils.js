@@ -43,3 +43,19 @@ function escHtml(s) {
 function escAttr(s) {
   return String(s).replace(/'/g,"\\'");
 }
+
+// ── Conversation message filtering ─────────────────────────────────────────
+// Remove XML protocol tags injected by Claude Code (e.g. <local-command-caveat>,
+// <command-name>, <system-reminder>). Returns the remaining human-readable text.
+// Handles both complete <tag>...</tag> pairs and orphaned opening tags (truncated content).
+function stripSystemTags(text) {
+  return String(text)
+    .replace(/<[a-z][a-z0-9-]*(?:\s[^>]*)?>[\s\S]*?<\/[a-z][a-z0-9-]*>/gi, '') // paired tags
+    .replace(/<[a-z][a-z0-9-]*(?:\s[^>]*)?>[\s\S]*/gi, '')                      // orphaned openers
+    .trim();
+}
+
+// Returns true when the message is entirely internal Claude Code scaffolding.
+function isSystemOnlyMessage(text) {
+  return stripSystemTags(text) === '';
+}

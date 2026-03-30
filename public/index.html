@@ -35,6 +35,7 @@
     <div class="sidebar-tabs">
       <div class="sidebar-tab active" id="tab-memory" onclick="switchTab('memory')">Projects</div>
       <div class="sidebar-tab" id="tab-commands" onclick="switchTab('commands')">Commands</div>
+      <div class="sidebar-tab" id="tab-mcp" onclick="switchTab('mcp')">MCP</div>
     </div>
 
     <!-- Projects list (memory tab) -->
@@ -57,6 +58,12 @@
     <div class="sidebar-section hidden" id="section-commands">
       <div class="sidebar-title">Custom Commands</div>
       <div id="command-sidebar-list"></div>
+    </div>
+
+    <!-- MCP servers (mcp tab) -->
+    <div class="sidebar-section hidden" id="section-mcp">
+      <div class="sidebar-title">MCP Servers</div>
+      <div id="mcp-sidebar-list"></div>
     </div>
   </div>
 
@@ -159,6 +166,7 @@
 <script src="js/files.js"></script>
 <script src="js/editor.js"></script>
 <script src="js/commands.js"></script>
+<script src="js/mcp.js"></script>
 <script src="js/conversations.js"></script>
 <script src="js/modals.js"></script>
 <script src="js/boot.js"></script>

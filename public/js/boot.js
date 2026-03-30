@@ -61,6 +61,7 @@ async function boot() {
   ]);
   renderProjects();
   renderCommandSidebar();
+  api('GET', '/api/mcp').then(data => { mcpServers = data; renderMcpSidebar(); }).catch(() => {});
   setupSSE();
   await restoreSessionState();
 }
@@ -70,11 +71,15 @@ function switchTab(tab) {
   currentTab = tab;
   document.getElementById('tab-memory').classList.toggle('active', tab === 'memory');
   document.getElementById('tab-commands').classList.toggle('active', tab === 'commands');
+  document.getElementById('tab-mcp').classList.toggle('active', tab === 'mcp');
   document.getElementById('section-memory').classList.toggle('hidden', tab !== 'memory');
   document.getElementById('section-commands').classList.toggle('hidden', tab !== 'commands');
+  document.getElementById('section-mcp').classList.toggle('hidden', tab !== 'mcp');
 
   if (tab === 'commands') {
     renderCommandsMiddlePanel();
+  } else if (tab === 'mcp') {
+    renderMcpPanel();
   } else {
     // Restore memory panel
     if (activeProjectId) {
@@ -118,6 +123,10 @@ function setupSSE() {
           commands = await api('GET', '/api/commands');
           renderCommandsMiddlePanel();
           renderCommandSidebar();
+        } else if (currentTab === 'mcp') {
+          mcpServers = await api('GET', '/api/mcp');
+          renderMcpPanel();
+          renderMcpSidebar();
         }
       } catch (err) {
         console.warn('[SSE reload]', err.message);

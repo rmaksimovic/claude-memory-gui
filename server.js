@@ -11,6 +11,7 @@ const { listConversations, parseFullConversation, forkConversation, summarizeCon
 const { GLOBAL_COMMANDS_DIR, PLANS_DIR, listCommands } = require('./lib/commands');
 const { gitInfoHandler, blameHandler, gitAutoTrack } = require('./lib/git');
 const { setupSSE } = require('./lib/sse');
+const { listMcpServers } = require('./lib/mcp');
 
 const app = express();
 const PORT = 3737;
@@ -209,6 +210,11 @@ app.post('/api/commands', (req, res) => {
   fs.writeFileSync(filePath, content, 'utf8');
   gitAutoTrack(filePath, `Add command: ${filename}`);
   res.json({ ok: true, filePath });
+});
+
+// MCP servers
+app.get('/api/mcp', (req, res) => {
+  res.json(listMcpServers());
 });
 
 // Git info

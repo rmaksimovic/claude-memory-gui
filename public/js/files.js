@@ -87,7 +87,7 @@ function renderFileList(proj, files, health, conversations = [], mdFiles = []) {
 
   const makeMdFileItem   = f    => makeFileItem({ filePath: f.filePath, name: f.filename, badge: 'md', badgeClass: 'type-md', desc: f.snippet || f.description || null, metaLeft: f.lineCount ? `${f.lineCount} lines` : null, mtime: f.mtime, isActive: activeFilePath === f.filePath, searchtext: ((f.filename || '') + ' ' + (f.description || '') + ' ' + (f.snippet || '')).toLowerCase(), onclick: () => openFile(f.filePath, f.filename) });
   const makeMemoryItem   = f    => makeFileItem({ filePath: f.filePath, name: f.name, badge: 'memory', desc: f.description || f.filename, metaLeft: `${f.lineCount} lines`, mtime: f.mtime, isActive: activeFilePath === f.filePath, searchtext: ((f.name || '') + ' ' + (f.description || '') + ' ' + (f.body || '')).toLowerCase(), onclick: () => openFile(f.filePath, f.filename) });
-  const makeConvItem     = conv => makeFileItem({ filePath: conv.filePath, name: conv.firstUserMessage || 'Empty conversation', badge: 'chat', desc: conv.model || null, metaLeft: formatBytes(conv.size), mtime: conv.mtime, isActive: activeConvPath === conv.filePath, searchtext: ((conv.firstUserMessage || '') + ' ' + (conv.cwd || '')).toLowerCase(), onclick: () => openConversation(conv) });
+  const makeConvItem     = conv => { const displayMsg = stripSystemTags(conv.firstUserMessage || '') || 'Empty conversation'; return makeFileItem({ filePath: conv.filePath, name: displayMsg, badge: 'chat', desc: conv.model || null, metaLeft: formatBytes(conv.size), mtime: conv.mtime, isActive: activeConvPath === conv.filePath, searchtext: (displayMsg + ' ' + (conv.cwd || '')).toLowerCase(), onclick: () => openConversation(conv) }); };
 
   const memoryIndex = files.find(f => f.filename === 'MEMORY.md') || null;
   const makeMemoryIndexItem = f => makeFileItem({ filePath: f.filePath, name: 'MEMORY.md', badge: 'index', badgeClass: 'type-index', desc: 'Auto-generated memory index', metaLeft: `${f.lineCount} lines`, mtime: f.mtime, isActive: activeFilePath === f.filePath, searchtext: 'memory.md index', onclick: () => openFile(f.filePath, f.filename) });
@@ -101,7 +101,7 @@ function renderFileList(proj, files, health, conversations = [], mdFiles = []) {
   const sortedConvs = [...conversations]
     .sort((a, b) => fileSort === 'modified'
       ? new Date(b.mtime) - new Date(a.mtime)
-      : (a.firstUserMessage || '').localeCompare(b.firstUserMessage || ''));
+      : stripSystemTags(a.firstUserMessage || '').localeCompare(stripSystemTags(b.firstUserMessage || '')));
 
   const sortedMdFiles = [...mdFiles]
     .sort((a, b) => fileSort === 'modified'

@@ -1,12 +1,13 @@
 // ── State ──────────────────────────────────────────────────────────────────
 let projects = [];
 let commands = [];
+let mcpServers = [];
 let activeProjectId = null;
 let activeFilePath = null;
 let files = [];
 let modified = false;
 let saveTimeout = null;
-let currentTab = 'memory'; // 'memory' | 'commands'
+let currentTab = 'memory'; // 'memory' | 'commands' | 'mcp'
 let activeConvPath = null;
 let statsPanelOpen = true; // remembers toggle state across conversations
 let cachedHealth = [];

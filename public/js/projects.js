@@ -181,6 +181,8 @@ async function selectProject(id) {
     activeFilters.has('claudemd') ? api('GET', `/api/projects/${id}/mdfiles`) : Promise.resolve([]),
   ];
   const results = await Promise.allSettled(fetches);
+  // Guard against race: if another project was selected while fetching, discard stale results
+  if (activeProjectId !== id) return;
   const settled = (i, fallback) => results[i].status === 'fulfilled' ? results[i].value : fallback;
   files = settled(0, []);
   cachedHealth = settled(1, []);

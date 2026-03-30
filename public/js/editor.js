@@ -2,6 +2,14 @@
 let editorMode = 'preview';
 let activeFileContent = '';
 
+// ── File type detection ────────────────────────────────────────────────────
+function fileType(filePath) {
+  if (!filePath) return 'md';
+  const ext = filePath.split('.').pop().toLowerCase();
+  if (ext === 'json') return 'json';
+  return 'md';
+}
+
 // ── Open file ──────────────────────────────────────────────────────────────
 async function openFile(filePath, filename) {
   const id = tabIdFor('file', filePath);
@@ -35,11 +43,6 @@ function renderEditor(filePath, filename, content) {
   const toolbar = document.createElement('div');
   toolbar.className = 'editor-toolbar';
 
-  const fnEl = document.createElement('div');
-  fnEl.className = 'editor-filename';
-  fnEl.id = 'editor-filename';
-  fnEl.textContent = filePath;
-
   const blameBtn = document.createElement('button');
   blameBtn.className = 'group-toggle-btn' + (blameGutterVisible ? ' on' : '');
   blameBtn.innerHTML = '<span class="gtb-dot"></span>Blame';
@@ -51,7 +54,6 @@ function renderEditor(filePath, filename, content) {
     pane.classList.toggle('blame-hidden', !blameGutterVisible);
   };
 
-  toolbar.appendChild(fnEl);
   toolbar.appendChild(blameBtn);
   pane.appendChild(toolbar);
   pane.classList.toggle('blame-hidden', !blameGutterVisible);
@@ -68,10 +70,32 @@ function renderEditor(filePath, filename, content) {
     const timeStr = ts.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
     gitBar.innerHTML = `<span class="git-hash">${escHtml(info.hash)}</span><span class="git-subject">${escHtml(info.subject)}</span><span class="git-meta">${escHtml(info.author)} · ${dateStr} ${timeStr} (${ago})</span>`;
     gitBar.classList.add('loaded');
-    blameBtn.style.display = '';
+    if (fileType(filePath) !== 'json') blameBtn.style.display = '';
   }).catch(() => {});
 
   renderPreview(pane, content, filePath);
+
+  // Footer: file path (matches file-list-footer style)
+  const footer = document.createElement('div');
+  footer.className = 'editor-footer';
+  const pathRow = document.createElement('div');
+  pathRow.className = 'file-list-footer-path-row';
+  const pathEl = document.createElement('span');
+  pathEl.className = 'file-list-footer-path';
+  pathEl.textContent = filePath;
+  pathEl.title = filePath;
+  const copyBtn = document.createElement('button');
+  copyBtn.className = 'copy-path-btn';
+  copyBtn.textContent = 'Copy';
+  copyBtn.addEventListener('click', () => {
+    navigator.clipboard.writeText(filePath);
+    copyBtn.textContent = 'Copied!';
+    setTimeout(() => { copyBtn.textContent = 'Copy'; }, 1500);
+  });
+  pathRow.appendChild(pathEl);
+  pathRow.appendChild(copyBtn);
+  footer.appendChild(pathRow);
+  pane.appendChild(footer);
 }
 
 function setEditorMode(mode, filePath, filename) {
@@ -183,6 +207,53 @@ function renderBlameGrid(grid, body, lineOffset, blame, skipFirstCell = false) {
 }
 
 function renderPreview(pane, content, filePath) {
+  if (fileType(filePath) === 'json') {
+    renderJsonPreview(pane, content);
+    return;
+  }
+  renderMarkdownPreview(pane, content, filePath);
+}
+
+function renderJsonPreview(pane, content) {
+  const scroll = document.createElement('div');
+  scroll.className = 'md-preview-scroll';
+  const card = document.createElement('div');
+  card.className = 'md-preview';
+  const pre = document.createElement('pre');
+  pre.className = 'json-preview';
+
+  let formatted;
+  try {
+    formatted = JSON.stringify(JSON.parse(content), null, 2);
+  } catch {
+    formatted = content;
+  }
+
+  pre.innerHTML = jsonToHtml(formatted);
+  card.appendChild(pre);
+  scroll.appendChild(card);
+  pane.appendChild(scroll);
+}
+
+function jsonToHtml(json) {
+  // HTML-escape first, then apply colour spans.
+  // After escaping, JSON string delimiters become &quot; — match those.
+  const escaped = escHtml(json);
+  return escaped.replace(
+    /(&quot;(?:[^&\\]|\\.)*&quot;)(\s*:)?|\b(true|false|null)\b|(-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,
+    (match, str, colon, kw, num) => {
+      if (str !== undefined) {
+        const cls = colon ? 'json-key' : 'json-str';
+        return `<span class="${cls}">${str}</span>${colon || ''}`;
+      }
+      if (kw !== undefined) return `<span class="json-kw">${kw}</span>`;
+      if (num !== undefined) return `<span class="json-num">${num}</span>`;
+      return match;
+    }
+  );
+}
+
+function renderMarkdownPreview(pane, content, filePath) {
   const scroll = document.createElement('div');
   scroll.className = 'md-preview-scroll';
   const div = document.createElement('div');
@@ -201,15 +272,13 @@ function renderPreview(pane, content, filePath) {
 
   scroll.appendChild(div);
   pane.appendChild(scroll);
-
-  // Ensure the scroll container always starts at the top
   scroll.scrollTop = 0;
+  requestAnimationFrame(() => { scroll.scrollTop = 0; });
 
   if (!filePath) return;
   api('GET', `/api/blame?path=${encodeURIComponent(filePath)}`).then(blame => {
     if (!blame || !scroll.isConnected) return;
     const savedScrollTop = scroll.scrollTop;
-    // Replace card wrapper with gutter-left layout directly in scroll
     scroll.innerHTML = '';
     const grid = document.createElement('div');
     grid.className = 'blame-grid';

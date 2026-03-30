@@ -413,6 +413,7 @@
 
     .chat-scroll {
       flex: 1;
+      min-height: 0;
       overflow-y: auto;
       background: var(--preview-code-bg);
       display: flex;
@@ -922,6 +923,14 @@
     .git-hash { font-family: monospace; opacity: 0.6; flex-shrink: 0; }
     .git-subject { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .git-meta { opacity: 0.6; white-space: nowrap; flex-shrink: 0; }
+    .editor-footer {
+      padding: 7px 12px;
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
     .editor-filename {
       font-size: 12px;
       color: var(--muted);
@@ -967,6 +976,7 @@
     /* ── Markdown preview ── */
     .md-preview-scroll {
       flex: 1;
+      min-height: 0;
       overflow-y: auto;
       background: var(--preview-code-bg);
       display: flex;
@@ -1146,6 +1156,41 @@
     }
     .command-detail-scope { font-size: 10px; color: var(--muted); margin-bottom: 4px; }
     .command-detail-desc { font-size: 11px; color: var(--muted); line-height: 1.4; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+
+    /* ── MCP servers ── */
+    .mcp-server-item {
+      padding: 10px 14px;
+      border-left: 2px solid transparent;
+      cursor: pointer;
+      border-bottom: 1px solid var(--border);
+    }
+    .mcp-server-item:hover { background: var(--surface2); }
+    .mcp-server-item.active { border-left-color: var(--ok); background: var(--surface2); }
+    .mcp-server-name { font-size: 13px; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+    .mcp-server-cmd { font-size: 11px; color: var(--muted); font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mcp-type-badge { font-size: 10px; font-weight: 500; padding: 1px 5px; border-radius: 3px; background: color-mix(in srgb, var(--ok) 20%, transparent); color: var(--ok); }
+    .mcp-env-badge { font-size: 10px; font-weight: 500; padding: 1px 5px; border-radius: 3px; background: color-mix(in srgb, var(--accent) 20%, transparent); color: var(--accent); }
+
+    /* ── JSON preview ── */
+    .json-preview {
+      font-family: 'SF Mono', 'Fira Code', ui-monospace, monospace;
+      font-size: 12px;
+      line-height: 1.6;
+      margin: 0;
+      white-space: pre;
+      overflow-x: auto;
+      color: var(--text);
+    }
+    .json-key  { color: #7dd3fc; }
+    .json-str  { color: #86efac; }
+    .json-num  { color: #fda4af; }
+    .json-kw   { color: #f9a8d4; font-style: italic; }
+    @media (prefers-color-scheme: light) {
+      .json-key { color: #0369a1; }
+      .json-str { color: #15803d; }
+      .json-num { color: #be123c; }
+      .json-kw  { color: #9333ea; }
+    }
 
     /* ── Search results overlay ── */
     #search-results {

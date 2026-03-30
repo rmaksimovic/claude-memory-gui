@@ -23,11 +23,12 @@ function renderChatView(pane, conv, messages) {
 
   const toolbar = document.createElement('div');
   toolbar.className = 'editor-toolbar';
-  const userTurns = messages.filter(m => m.type === 'user' && !m.isMeta).length;
+  const userTurns = messages.filter(m => m.type === 'user' && !isSystemOnlyMessage(extractTextContent(m.message?.content))).length;
   toolbar.innerHTML = `
-    <div class="editor-filename">${escHtml(conv.filePath)}</div>
     <span style="font-size:11px;color:var(--muted)">${userTurns} turns · ${escHtml(conv.model || '')}</span>
-    <button class="stats-toggle-btn${statsPanelOpen ? ' active' : ''}" id="stats-toggle-btn">Cost & Tokens</button>
+    <div style="margin-left:auto;display:flex;gap:6px;align-items:center;">
+      <button class="stats-toggle-btn${statsPanelOpen ? ' active' : ''}" id="stats-toggle-btn">Cost & Tokens</button>
+    </div>
   `;
   pane.appendChild(toolbar);
 
@@ -92,21 +93,66 @@ function renderChatView(pane, conv, messages) {
       summarizeBtn.textContent = '✦ Summarize';
     }
   });
-  toolbar.appendChild(summarizeBtn);
+  toolbar.querySelector('div').prepend(summarizeBtn);
 
   const scroll = document.createElement('div');
   scroll.className = 'chat-scroll';
   renderChatMessages(scroll, messages, conv.filePath);
   pane.appendChild(scroll);
-  scroll.scrollTop = scroll.scrollHeight;
+  scroll.scrollTop = 0;
+
+  // Footer: file path
+  const footer = document.createElement('div');
+  footer.className = 'editor-footer';
+  const pathRow = document.createElement('div');
+  pathRow.className = 'file-list-footer-path-row';
+  const pathEl = document.createElement('span');
+  pathEl.className = 'file-list-footer-path';
+  pathEl.textContent = conv.filePath;
+  pathEl.title = conv.filePath;
+  const copyBtn = document.createElement('button');
+  copyBtn.className = 'copy-path-btn';
+  copyBtn.textContent = 'Copy';
+  copyBtn.addEventListener('click', () => {
+    navigator.clipboard.writeText(conv.filePath);
+    copyBtn.textContent = 'Copied!';
+    setTimeout(() => { copyBtn.textContent = 'Copy'; }, 1500);
+  });
+  pathRow.appendChild(pathEl);
+  pathRow.appendChild(copyBtn);
+  footer.appendChild(pathRow);
+  pane.appendChild(footer);
 
   if (statsPanelOpen) showConvStatsPanel(messages, conv);
   else hideConvStatsPanel();
 }
 
+// Returns the plain text from a message content (string or block array)
+function extractTextContent(content) {
+  if (typeof content === 'string') return content.trim();
+  if (Array.isArray(content)) {
+    return content.filter(b => b.type === 'text').map(b => b.text || '').join('\n').trim();
+  }
+  return '';
+}
+
 function renderChatMessages(scroll, messages, filePath) {
   for (const record of messages) {
     const isUser = record.type === 'user';
+    const content = record.message?.content;
+
+    // Skip user messages that are pure system/protocol scaffolding
+    if (isUser) {
+      const text = extractTextContent(content);
+      if (isSystemOnlyMessage(text)) continue;
+    }
+
+    // Skip assistant turns that have no text content (tool-only turns)
+    if (!isUser && Array.isArray(content)) {
+      const hasText = content.some(b => b.type === 'text' && (b.text || '').trim());
+      if (!hasText) continue;
+    }
+
     const turn = document.createElement('div');
     turn.className = 'chat-turn';
 
@@ -132,7 +178,6 @@ function renderChatMessages(scroll, messages, filePath) {
     const bubble = document.createElement('div');
     bubble.className = `chat-bubble ${isUser ? 'chat-bubble-user' : 'chat-bubble-assistant'}`;
 
-    const content = record.message?.content;
     if (typeof content === 'string') {
       bubble.innerHTML = isUser ? `<p>${escHtml(content)}</p>` : marked.parse(content);
     } else if (Array.isArray(content)) {
@@ -143,13 +188,12 @@ function renderChatMessages(scroll, messages, filePath) {
           d.innerHTML = marked.parse(block.text || '');
           bubble.appendChild(d);
         } else if (block.type === 'tool_use') {
+          // Only show tool tags when the turn also has text (context already filtered above)
           const t = document.createElement('div');
           t.className = 'chat-tool';
           t.textContent = `⚙ ${block.name}`;
           t.title = JSON.stringify(block.input || {}, null, 2);
           bubble.appendChild(t);
-        } else if (block.type === 'tool_result') {
-          // skip
         }
       }
     }
