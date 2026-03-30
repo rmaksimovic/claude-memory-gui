@@ -29,7 +29,7 @@ function saveUIState(patch) {
   localStorage.setItem(UI_STORAGE_KEY, JSON.stringify({ ...s, ...patch }));
 }
 function saveTabState() {
-  const tabsToSave = openTabs.map(t => ({
+  const tabsToSave = openTabs.filter(t => !t.preview).map(t => ({
     id: t.id, type: t.type, filePath: t.filePath, filename: t.filename, mode: t.mode || 'preview',
   }));
   saveUIState({ savedTabs: tabsToSave, activeTabId, activeProjectId });

@@ -63,7 +63,7 @@ function renderFileList(proj, files, health, conversations = [], mdFiles = []) {
   freshSearch.addEventListener('input', e => applyFileSearch(e.target.value));
 
   // ── Unified file item renderer ───────────────────────────────────────────
-  function makeFileItem({ filePath, name, badge, badgeClass, desc, metaLeft, mtime, isActive, searchtext, onclick }) {
+  function makeFileItem({ filePath, name, badge, badgeClass, desc, metaLeft, mtime, isActive, searchtext, onclick, ondblclick }) {
     const item = document.createElement('div');
     item.className = 'file-item' + (isActive ? ' active' : '');
     item.innerHTML = `
@@ -78,6 +78,7 @@ function renderFileList(proj, files, health, conversations = [], mdFiles = []) {
       </div>
     `;
     item.onclick = onclick;
+    if (ondblclick) item.ondblclick = e => { e.stopPropagation(); ondblclick(); };
     item.dataset.filepath = filePath || '';
     item.dataset.mtime = mtime || '';
     item.dataset.name = name;
@@ -85,12 +86,12 @@ function renderFileList(proj, files, health, conversations = [], mdFiles = []) {
     return item;
   }
 
-  const makeMdFileItem   = f    => makeFileItem({ filePath: f.filePath, name: f.filename, badge: 'md', badgeClass: 'type-md', desc: f.snippet || f.description || null, metaLeft: f.lineCount ? `${f.lineCount} lines` : null, mtime: f.mtime, isActive: activeFilePath === f.filePath, searchtext: ((f.filename || '') + ' ' + (f.description || '') + ' ' + (f.snippet || '')).toLowerCase(), onclick: () => openFile(f.filePath, f.filename) });
-  const makeMemoryItem   = f    => makeFileItem({ filePath: f.filePath, name: f.name, badge: 'memory', desc: f.description || f.filename, metaLeft: `${f.lineCount} lines`, mtime: f.mtime, isActive: activeFilePath === f.filePath, searchtext: ((f.name || '') + ' ' + (f.description || '') + ' ' + (f.body || '')).toLowerCase(), onclick: () => openFile(f.filePath, f.filename) });
-  const makeConvItem     = conv => { const displayMsg = stripSystemTags(conv.firstUserMessage || '') || 'Empty conversation'; return makeFileItem({ filePath: conv.filePath, name: displayMsg, badge: 'chat', desc: conv.model || null, metaLeft: formatBytes(conv.size), mtime: conv.mtime, isActive: activeConvPath === conv.filePath, searchtext: (displayMsg + ' ' + (conv.cwd || '')).toLowerCase(), onclick: () => openConversation(conv) }); };
+  const makeMdFileItem   = f    => makeFileItem({ filePath: f.filePath, name: f.filename, badge: 'md', badgeClass: 'type-md', desc: f.snippet || f.description || null, metaLeft: f.lineCount ? `${f.lineCount} lines` : null, mtime: f.mtime, isActive: activeFilePath === f.filePath, searchtext: ((f.filename || '') + ' ' + (f.description || '') + ' ' + (f.snippet || '')).toLowerCase(), onclick: () => openFile(f.filePath, f.filename), ondblclick: () => openFile(f.filePath, f.filename, true) });
+  const makeMemoryItem   = f    => makeFileItem({ filePath: f.filePath, name: f.name, badge: 'memory', desc: f.description || f.filename, metaLeft: `${f.lineCount} lines`, mtime: f.mtime, isActive: activeFilePath === f.filePath, searchtext: ((f.name || '') + ' ' + (f.description || '') + ' ' + (f.body || '')).toLowerCase(), onclick: () => openFile(f.filePath, f.filename), ondblclick: () => openFile(f.filePath, f.filename, true) });
+  const makeConvItem     = conv => { const displayMsg = stripSystemTags(conv.firstUserMessage || '') || 'Empty conversation'; return makeFileItem({ filePath: conv.filePath, name: displayMsg, badge: 'chat', desc: conv.model || null, metaLeft: formatBytes(conv.size), mtime: conv.mtime, isActive: activeConvPath === conv.filePath, searchtext: (displayMsg + ' ' + (conv.cwd || '')).toLowerCase(), onclick: () => openConversation(conv), ondblclick: () => openConversation(conv, true) }); };
 
   const memoryIndex = files.find(f => f.filename === 'MEMORY.md') || null;
-  const makeMemoryIndexItem = f => makeFileItem({ filePath: f.filePath, name: 'MEMORY.md', badge: 'index', badgeClass: 'type-index', desc: 'Auto-generated memory index', metaLeft: `${f.lineCount} lines`, mtime: f.mtime, isActive: activeFilePath === f.filePath, searchtext: 'memory.md index', onclick: () => openFile(f.filePath, f.filename) });
+  const makeMemoryIndexItem = f => makeFileItem({ filePath: f.filePath, name: 'MEMORY.md', badge: 'index', badgeClass: 'type-index', desc: 'Auto-generated memory index', metaLeft: `${f.lineCount} lines`, mtime: f.mtime, isActive: activeFilePath === f.filePath, searchtext: 'memory.md index', onclick: () => openFile(f.filePath, f.filename), ondblclick: () => openFile(f.filePath, f.filename, true) });
 
   const sortedMemory = [...files]
     .filter(f => f.filename !== 'MEMORY.md')

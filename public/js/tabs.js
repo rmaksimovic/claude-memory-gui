@@ -10,19 +10,28 @@ function syncToActiveTab() {
   tab.mode = editorMode;
 }
 
+function promoteTab(id) {
+  const tab = openTabs.find(t => t.id === id);
+  if (!tab || !tab.preview) return;
+  tab.preview = false;
+  renderTabBar();
+  saveTabState();
+}
+
 function renderTabBar() {
   const bar = document.getElementById('tab-bar');
   if (!bar) return;
   bar.innerHTML = '';
   for (const tab of openTabs) {
     const item = document.createElement('div');
-    item.className = 'tab-item' + (tab.id === activeTabId ? ' active' : '');
+    item.className = 'tab-item' + (tab.id === activeTabId ? ' active' : '') + (tab.preview ? ' preview' : '');
     const icon = tab.type === 'conv' ? '<img src="claude-code-icon.png" class="tab-claude-icon" />' : '📄';
     const label = tab.type === 'conv'
       ? (tab.conv.firstUserMessage || 'Conversation').slice(0, 35)
       : tab.filename;
     item.innerHTML = `<span class="tab-icon">${icon}</span><span class="tab-label">${escHtml(label)}</span>${tab.modified ? '<span class="tab-modified">●</span>' : ''}<button class="tab-close" title="Close">×</button>`;
     item.addEventListener('click', () => activateTab(tab.id));
+    item.addEventListener('dblclick', () => promoteTab(tab.id));
     item.addEventListener('mousedown', e => { if (e.button === 1) { e.preventDefault(); closeTab(tab.id); } });
     item.querySelector('.tab-close').addEventListener('click', e => { e.stopPropagation(); closeTab(tab.id); });
     bar.appendChild(item);

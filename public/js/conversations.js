@@ -1,16 +1,26 @@
 // ── Conversation viewer ────────────────────────────────────────────────────
-async function openConversation(conv) {
+async function openConversation(conv, permanent = false) {
   const id = tabIdFor('conv', conv.filePath);
   const existing = openTabs.find(t => t.id === id);
-  if (existing) { activateTab(id); return; }
+  if (existing) {
+    if (permanent && existing.preview) { existing.preview = false; renderTabBar(); saveTabState(); }
+    activateTab(id);
+    return;
+  }
 
   syncToActiveTab();
   const ec = document.getElementById('editor-content');
   ec.innerHTML = `<div class="empty">${ICON_FILE}Loading…</div>`;
 
   const messages = await api('GET', `/api/conversation?path=${encodeURIComponent(conv.filePath)}`);
-  const tab = { id, type: 'conv', filePath: conv.filePath, filename: conv.id, conv, messages };
-  openTabs.push(tab);
+  const tab = { id, type: 'conv', filePath: conv.filePath, filename: conv.id, conv, messages, preview: !permanent };
+
+  const previewIdx = permanent ? -1 : openTabs.findIndex(t => t.preview);
+  if (previewIdx !== -1) {
+    openTabs.splice(previewIdx, 1, tab);
+  } else {
+    openTabs.push(tab);
+  }
   activeTabId = id;
   activeConvPath = conv.filePath; activeFilePath = null; modified = false;
   renderTabBar();

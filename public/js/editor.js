@@ -11,16 +11,27 @@ function fileType(filePath) {
 }
 
 // ── Open file ──────────────────────────────────────────────────────────────
-async function openFile(filePath, filename) {
+async function openFile(filePath, filename, permanent = false) {
   const id = tabIdFor('file', filePath);
   const existing = openTabs.find(t => t.id === id);
-  if (existing) { activateTab(id); return; }
+  if (existing) {
+    if (permanent && existing.preview) { existing.preview = false; renderTabBar(); saveTabState(); }
+    activateTab(id);
+    return;
+  }
 
   syncToActiveTab();
   hideConvStatsPanel();
   const { content } = await api('GET', `/api/file?path=${encodeURIComponent(filePath)}`);
-  const tab = { id, type: 'file', filePath, filename, content, modified: false, mode: editorMode };
-  openTabs.push(tab);
+  const tab = { id, type: 'file', filePath, filename, content, modified: false, mode: editorMode, preview: !permanent };
+
+  // Replace the existing preview tab in-place (keeps its position in the bar)
+  const previewIdx = permanent ? -1 : openTabs.findIndex(t => t.preview);
+  if (previewIdx !== -1) {
+    openTabs.splice(previewIdx, 1, tab);
+  } else {
+    openTabs.push(tab);
+  }
   activeTabId = id;
   activeFilePath = filePath; activeConvPath = null;
   activeFileContent = content; modified = false;
@@ -312,7 +323,10 @@ function renderTextarea(pane, content) {
     modified = true;
     activeFileContent = ta.value;
     const tab = getActiveTab();
-    if (tab) { tab.content = ta.value; tab.modified = true; }
+    if (tab) {
+      tab.content = ta.value; tab.modified = true;
+      if (tab.preview) { tab.preview = false; renderTabBar(); }
+    }
     document.getElementById('editor-filename').classList.add('modified');
     renderTabBar();
     clearTimeout(saveTimeout);

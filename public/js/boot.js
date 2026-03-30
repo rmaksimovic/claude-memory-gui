@@ -43,6 +43,16 @@ async function restoreSessionState() {
   }
 }
 
+// ── Promote preview tab on text selection ──────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('editor-content').addEventListener('mouseup', () => {
+    const sel = window.getSelection();
+    if (!sel || sel.toString().length === 0) return;
+    const tab = getActiveTab();
+    if (tab && tab.preview) { tab.preview = false; renderTabBar(); saveTabState(); }
+  });
+});
+
 // ── Boot ───────────────────────────────────────────────────────────────────
 async function boot() {
   applyGridCols();
