@@ -24,6 +24,7 @@ async function openConversation(conv, permanent = false) {
   activeTabId = id;
   activeConvPath = conv.filePath; activeFilePath = null; modified = false;
   renderTabBar();
+  syncFileListActive();
   renderChatView(ec, conv, messages);
   saveTabState();
 }

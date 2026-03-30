@@ -36,6 +36,7 @@ async function openFile(filePath, filename, permanent = false) {
   activeFilePath = filePath; activeConvPath = null;
   activeFileContent = content; modified = false;
   renderTabBar();
+  syncFileListActive();
   renderEditor(filePath, filename, content);
   saveTabState();
 
