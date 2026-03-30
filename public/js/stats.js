@@ -170,6 +170,40 @@ function renderStatsTab(container, messages, conv) {
     </div>
   `;
 
+  // ── Pricing reference (collapsible) ──
+  const pricingRows = PRICING.map(p => `
+    <tr>
+      <td>${escHtml(p.match)}</td>
+      <td>$${p.input.toFixed(2)}</td>
+      <td>$${p.output.toFixed(2)}</td>
+      <td>$${p.cw1h.toFixed(2)}</td>
+      <td>$${p.cr.toFixed(2)}</td>
+    </tr>
+  `).join('');
+
+  const pricingCard = document.createElement('div');
+  pricingCard.className = 'stats-card pricing-card';
+  pricingCard.innerHTML = `
+    <div class="stats-card-title pricing-toggle">
+      Pricing Reference <span class="pricing-chevron">▸</span>
+    </div>
+    <div class="pricing-table-wrap" style="display:none">
+      <div style="font-size:10px;color:var(--muted);margin-bottom:6px">USD per million tokens</div>
+      <table class="tok-table pricing-table">
+        <thead><tr><th>Model</th><th>In</th><th>Out</th><th>CW 1h</th><th>CR</th></tr></thead>
+        <tbody>${pricingRows}</tbody>
+      </table>
+    </div>
+  `;
+  pricingCard.querySelector('.pricing-toggle').addEventListener('click', () => {
+    const wrap = pricingCard.querySelector('.pricing-table-wrap');
+    const chevron = pricingCard.querySelector('.pricing-chevron');
+    const open = wrap.style.display === 'none';
+    wrap.style.display = open ? '' : 'none';
+    chevron.textContent = open ? '▾' : '▸';
+  });
+  el.appendChild(pricingCard);
+
   container.appendChild(el);
 }
 

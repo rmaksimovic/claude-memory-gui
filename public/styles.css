@@ -598,6 +598,12 @@
     .stats-meta-row { display: flex; justify-content: space-between; font-size: 12px; padding: 5px 0; border-top: 1px solid var(--border); }
     .stats-meta-row:first-child { border-top: none; padding-top: 0; }
     .stats-meta-row .label { color: var(--muted); }
+    .pricing-toggle { cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: space-between; margin-bottom: 0; }
+    .pricing-toggle:hover { color: var(--text); }
+    .pricing-chevron { font-size: 10px; }
+    .pricing-table-wrap { margin-top: 12px; }
+    .pricing-table td, .pricing-table th { font-size: 10px; padding: 3px 0; }
+    .pricing-table td:first-child { font-family: monospace; color: var(--muted); max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
     /* Sidebar header row with toggle */
     .sidebar-header-row {
@@ -727,6 +733,15 @@
       transition: all 0.15s;
     }
     .copy-path-btn:hover { color: var(--text); border-color: var(--muted); }
+    .footer-count-row { display: flex; align-items: center; gap: 6px; }
+    .cost-btn {
+      background: none; border: 1px solid var(--border); border-radius: 4px;
+      color: var(--muted); font-size: 10px; padding: 1px 5px; cursor: pointer;
+      flex-shrink: 0; line-height: 1.4; transition: all 0.15s;
+    }
+    .cost-btn:hover:not(:disabled) { color: var(--ok); border-color: var(--ok); }
+    .cost-btn:disabled { opacity: 0.5; cursor: default; }
+    .footer-cost { color: var(--ok); font-size: 11px; }
     .reload-btn {
       background: none;
       border: 1px solid var(--border);

@@ -7,7 +7,8 @@ const path = require('path');
 const { readFileOrNull, ensureDir, safeReadDir, listProjectMdFiles } = require('./lib/fileUtils');
 const { listProjects, listMemoryFiles, buildSearchIndex } = require('./lib/projects');
 const { syncMemoryIndex, healthCheck } = require('./lib/health');
-const { listConversations, parseFullConversation, forkConversation, summarizeConversation } = require('./lib/conversations');
+const { listConversations, parseFullConversation, forkConversation, summarizeConversation, computeProjectCost } = require('./lib/conversations');
+const { MODEL_PRICING } = require('./lib/config');
 const { GLOBAL_COMMANDS_DIR, PLANS_DIR, listCommands } = require('./lib/commands');
 const { gitInfoHandler, blameHandler, gitAutoTrack } = require('./lib/git');
 const { setupSSE } = require('./lib/sse');
@@ -142,6 +143,14 @@ app.get('/api/projects/:id/claude-md', (req, res) => {
   if (!proj) return res.status(404).json({ error: 'Project not found' });
   if (!proj.claudeMd) return res.json({ content: '', filePath: null });
   res.json({ content: readFileOrNull(proj.claudeMd) || '', filePath: proj.claudeMd });
+});
+
+// Estimate total cost for a project
+app.get('/api/projects/:id/cost', (req, res) => {
+  const proj = listProjects().find(p => p.id === req.params.id);
+  if (!proj) return res.status(404).json({ error: 'Project not found' });
+  const cost = computeProjectCost(proj.path, MODEL_PRICING);
+  res.json({ cost });
 });
 
 // List conversations for a project

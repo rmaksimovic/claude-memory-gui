@@ -217,9 +217,37 @@ function renderFileList(proj, files, health, conversations = [], mdFiles = []) {
   const footerEl = document.getElementById('file-list-footer');
   const footer = footerEl || document.createElement('div');
   footer.innerHTML = '';
+
+  const countRow = document.createElement('div');
+  countRow.className = 'footer-count-row';
   const countSpan = document.createElement('span');
   countSpan.textContent = countParts.join(' · ') || 'Nothing selected';
-  footer.appendChild(countSpan);
+  countRow.appendChild(countSpan);
+
+  if (proj) {
+    const costResult = document.createElement('span');
+    costResult.className = 'footer-cost';
+    const costBtn = document.createElement('button');
+    costBtn.className = 'cost-btn';
+    costBtn.title = 'Estimate total project cost';
+    costBtn.textContent = '$';
+    costBtn.onclick = async () => {
+      costBtn.disabled = true;
+      costBtn.textContent = '…';
+      try {
+        const { cost } = await api('GET', `/api/projects/${proj.id}/cost`);
+        costBtn.style.display = 'none';
+        costResult.textContent = cost != null ? '~' + fmtCost(cost) : 'unknown';
+      } catch {
+        costBtn.disabled = false;
+        costBtn.textContent = '$';
+      }
+    };
+    countRow.appendChild(costBtn);
+    countRow.appendChild(costResult);
+  }
+
+  footer.appendChild(countRow);
   if (proj && proj.path) {
     const pathRow = document.createElement('div');
     pathRow.className = 'file-list-footer-path-row';
