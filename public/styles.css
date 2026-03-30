@@ -599,7 +599,7 @@
     .stats-meta-row:first-child { border-top: none; padding-top: 0; }
     .stats-meta-row .label { color: var(--muted); }
     .pricing-toggle { cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: space-between; margin-bottom: 0; }
-    .pricing-toggle:hover { color: var(--text); }
+    .pricing-toggle:hover { color: #86efac; }
     .pricing-chevron { font-size: 10px; }
     .pricing-table-wrap { margin-top: 12px; }
     .pricing-table td, .pricing-table th { font-size: 10px; padding: 3px 0; }
@@ -737,11 +737,11 @@
     .cost-btn {
       background: none; border: 1px solid var(--border); border-radius: 4px;
       color: var(--muted); font-size: 10px; padding: 1px 5px; cursor: pointer;
-      flex-shrink: 0; line-height: 1.4; transition: all 0.15s;
+      flex-shrink: 0; line-height: 1.4; transition: all 0.15s; margin-left: auto;
     }
-    .cost-btn:hover:not(:disabled) { color: var(--ok); border-color: var(--ok); }
+    .cost-btn:hover:not(:disabled) { color: #86efac; border-color: #86efac; }
     .cost-btn:disabled { opacity: 0.5; cursor: default; }
-    .footer-cost { color: var(--ok); font-size: 11px; }
+    .footer-cost { color: #86efac; font-size: 11px; }
     .reload-btn {
       background: none;
       border: 1px solid var(--border);
