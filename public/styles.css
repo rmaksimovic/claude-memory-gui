@@ -733,11 +733,11 @@
       transition: all 0.15s;
     }
     .copy-path-btn:hover { color: var(--text); border-color: var(--muted); }
-    .footer-count-row { display: flex; align-items: center; gap: 6px; }
+    .footer-count-row { display: flex; align-items: center; justify-content: space-between; }
     .cost-btn {
       background: none; border: 1px solid var(--border); border-radius: 4px;
       color: var(--muted); font-size: 10px; padding: 1px 5px; cursor: pointer;
-      flex-shrink: 0; line-height: 1.4; transition: all 0.15s; margin-left: auto;
+      flex-shrink: 0; line-height: 1.4; transition: all 0.15s;
     }
     .cost-btn:hover:not(:disabled) { color: #86efac; border-color: #86efac; }
     .cost-btn:disabled { opacity: 0.5; cursor: default; }
