@@ -44,39 +44,18 @@ function fmtBucketLabel(ts, bucketMs) {
 }
 
 function renderTimelineChart(container, messages, scrollEl) {
-  container.innerHTML = '';
+  // Disconnect any previous observer before (re)initialising
+  if (container._timelineRO) { container._timelineRO.disconnect(); container._timelineRO = null; }
+
   const data = buildTimelineData(messages);
-  if (!data) {
-    container.innerHTML = '<div style="color:var(--muted);font-size:11px;padding:20px;text-align:center">No timestamp data available</div>';
-    return;
-  }
+  container.style.position = 'relative';
 
-  const { buckets, bucketMs } = data;
-  const W  = container.clientWidth || 400;
-  const H  = 148;
-  const mt = 10, mr = 12, mb = 26, ml = 28;
-  const cW = W - ml - mr;
-  const cH = H - mt - mb;
-
-  const maxVal = Math.max(...buckets.map(b => b.user + b.ai), 1);
-  const yMax   = maxVal <= 2 ? maxVal : Math.ceil(maxVal / 2) * 2;
-  const yTicks = [...new Set([0, Math.ceil(yMax / 2), yMax])];
-
-  const gap  = cW / buckets.length;
-  const barW = Math.max(1, gap - Math.max(1, gap * 0.15));
-  const labelEvery = Math.max(1, Math.ceil(buckets.length / 6));
-
-  const cs   = getComputedStyle(document.documentElement);
+  const clrAI = '#4a7fa5';
+  const cs    = getComputedStyle(document.documentElement);
   const clrAccent = cs.getPropertyValue('--accent').trim()  || '#1a3a5c';
   const clrMuted  = cs.getPropertyValue('--muted').trim()   || '#6b7280';
   const clrBorder = cs.getPropertyValue('--border').trim()  || '#2d2d2d';
-  const clrAI     = '#4a7fa5';
-
-  const ns  = 'http://www.w3.org/2000/svg';
-  const svg = document.createElementNS(ns, 'svg');
-  svg.setAttribute('width', W);
-  svg.setAttribute('height', H);
-  svg.style.cssText = 'display:block;font-family:Inter,sans-serif;';
+  const ns = 'http://www.w3.org/2000/svg';
 
   function el(tag, attrs) {
     const e = document.createElementNS(ns, tag);
@@ -84,100 +63,131 @@ function renderTimelineChart(container, messages, scrollEl) {
     return e;
   }
 
-  // Grid + Y labels
-  for (const tick of yTicks) {
-    const y = mt + cH - (tick / yMax) * cH;
-    svg.appendChild(el('line', { x1: ml, x2: ml + cW, y1: y, y2: y,
-      stroke: clrBorder, 'stroke-width': tick === 0 ? 1 : 0.5 }));
-    if (tick > 0) {
-      const t = el('text', { x: ml - 4, y: y + 3, 'text-anchor': 'end',
-        fill: clrMuted, 'font-size': 9 });
-      t.textContent = tick;
-      svg.appendChild(t);
-    }
-  }
+  function draw() {
+    const W = container.clientWidth;
+    if (!W) return;
+    container.innerHTML = '';
 
-  // Tooltip
-  const tip = document.createElement('div');
-  tip.style.cssText = 'display:none;position:absolute;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:11px;color:var(--text);pointer-events:none;white-space:nowrap;z-index:50;line-height:1.5;';
-  container.style.position = 'relative';
-  container.appendChild(tip);
-
-  // Bars + hit areas
-  for (let i = 0; i < buckets.length; i++) {
-    const b    = buckets[i];
-    const x    = ml + i * gap + (gap - barW) / 2;
-    const total = b.user + b.ai;
-
-    if (b.ai > 0) {
-      const aiH   = (b.ai   / yMax) * cH;
-      const userH = (b.user / yMax) * cH;
-      svg.appendChild(el('rect', { x, y: mt + cH - userH - aiH,
-        width: barW, height: aiH, fill: clrAI, rx: 1 }));
-    }
-    if (b.user > 0) {
-      const userH = (b.user / yMax) * cH;
-      svg.appendChild(el('rect', { x, y: mt + cH - userH,
-        width: barW, height: userH, fill: clrAccent, rx: 1 }));
+    if (!data) {
+      container.innerHTML = '<div style="color:var(--muted);font-size:11px;padding:20px;text-align:center">No timestamp data available</div>';
+      return;
     }
 
-    // Invisible hit rect
-    const hit = el('rect', { x: ml + i * gap, y: mt, width: gap, height: cH, fill: 'transparent' });
-    if (total > 0) hit.style.cursor = 'pointer';
-    const label = fmtBucketLabel(b.ts, bucketMs);
+    const { buckets, bucketMs } = data;
+    const H  = 148;
+    const mt = 10, mr = 12, mb = 26, ml = 28;
+    const cW = W - ml - mr;
+    const cH = H - mt - mb;
 
-    // Click → scroll to first message in bucket
-    if (total > 0 && scrollEl) {
-      hit.addEventListener('click', () => {
-        const bucketEnd = b.ts + bucketMs;
-        const turns = scrollEl.querySelectorAll('.chat-turn[data-ts]');
-        let target = null;
-        for (const turn of turns) {
-          const ts = +turn.dataset.ts;
-          if (ts >= b.ts && ts < bucketEnd) { target = turn; break; }
-        }
-        if (target) {
-          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          target.classList.add('timeline-highlight');
-          setTimeout(() => target.classList.remove('timeline-highlight'), 1200);
-        }
+    const maxVal = Math.max(...buckets.map(b => b.user + b.ai), 1);
+    const yMax   = maxVal <= 2 ? maxVal : Math.ceil(maxVal / 2) * 2;
+    const yTicks = [...new Set([0, Math.ceil(yMax / 2), yMax])];
+    const gap    = cW / buckets.length;
+    const barW   = Math.max(1, gap - Math.max(1, gap * 0.15));
+    const labelEvery = Math.max(1, Math.ceil(buckets.length / 6));
+
+    const svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('width', W);
+    svg.setAttribute('height', H);
+    svg.style.cssText = 'display:block;font-family:Inter,sans-serif;';
+
+    // Grid + Y labels
+    for (const tick of yTicks) {
+      const y = mt + cH - (tick / yMax) * cH;
+      svg.appendChild(el('line', { x1: ml, x2: ml + cW, y1: y, y2: y,
+        stroke: clrBorder, 'stroke-width': tick === 0 ? 1 : 0.5 }));
+      if (tick > 0) {
+        const t = el('text', { x: ml - 4, y: y + 3, 'text-anchor': 'end', fill: clrMuted, 'font-size': 9 });
+        t.textContent = tick;
+        svg.appendChild(t);
+      }
+    }
+
+    // Tooltip
+    const tip = document.createElement('div');
+    tip.style.cssText = 'display:none;position:absolute;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:11px;color:var(--text);pointer-events:none;white-space:nowrap;z-index:50;line-height:1.5;';
+    container.appendChild(tip);
+
+    // Bars + hit areas
+    for (let i = 0; i < buckets.length; i++) {
+      const b     = buckets[i];
+      const x     = ml + i * gap + (gap - barW) / 2;
+      const total = b.user + b.ai;
+      const label = fmtBucketLabel(b.ts, bucketMs);
+
+      if (b.ai > 0) {
+        const aiH   = (b.ai   / yMax) * cH;
+        const userH = (b.user / yMax) * cH;
+        svg.appendChild(el('rect', { x, y: mt + cH - userH - aiH, width: barW, height: aiH, fill: clrAI, rx: 1 }));
+      }
+      if (b.user > 0) {
+        const userH = (b.user / yMax) * cH;
+        svg.appendChild(el('rect', { x, y: mt + cH - userH, width: barW, height: userH, fill: clrAccent, rx: 1 }));
+      }
+
+      const hit = el('rect', { x: ml + i * gap, y: mt, width: gap, height: cH, fill: 'transparent' });
+      if (total > 0) hit.style.cursor = 'pointer';
+
+      if (total > 0 && scrollEl) {
+        hit.addEventListener('click', () => {
+          const end = b.ts + bucketMs;
+          let target = null;
+          for (const turn of scrollEl.querySelectorAll('.chat-turn[data-ts]')) {
+            const ts = +turn.dataset.ts;
+            if (ts >= b.ts && ts < end) { target = turn; break; }
+          }
+          if (target) {
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            target.classList.add('timeline-highlight');
+            setTimeout(() => target.classList.remove('timeline-highlight'), 1200);
+          }
+        });
+      }
+
+      hit.addEventListener('mouseenter', () => {
+        if (!total) return;
+        tip.innerHTML = `<strong>${escHtml(label)}</strong><br>`
+          + `<span style="color:${clrAccent}">You: ${b.user}</span>`
+          + ` &nbsp;<span style="color:${clrAI}">AI: ${b.ai}</span>`;
+        tip.style.display = 'block';
       });
+      hit.addEventListener('mousemove', e => {
+        const r = container.getBoundingClientRect();
+        let lx = e.clientX - r.left + 10;
+        const ly = e.clientY - r.top - 44;
+        if (lx + 130 > r.width) lx -= 140;
+        tip.style.left = lx + 'px'; tip.style.top = ly + 'px';
+      });
+      hit.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
+      svg.appendChild(hit);
+
+      if (i % labelEvery === 0 || i === buckets.length - 1) {
+        const t = el('text', { x: ml + i * gap + gap / 2, y: H - 6,
+          'text-anchor': 'middle', fill: clrMuted, 'font-size': 9 });
+        t.textContent = label;
+        svg.appendChild(t);
+      }
     }
 
-    hit.addEventListener('mouseenter', () => {
-      if (!total) return;
-      tip.innerHTML = `<strong>${escHtml(label)}</strong><br>`
-        + `<span style="color:${clrAccent}">You: ${b.user}</span>`
-        + ` &nbsp;<span style="color:${clrAI}">AI: ${b.ai}</span>`;
-      tip.style.display = 'block';
-    });
-    hit.addEventListener('mousemove', e => {
-      const r = container.getBoundingClientRect();
-      let lx = e.clientX - r.left + 10;
-      const ly = e.clientY - r.top - 44;
-      if (lx + 130 > r.width) lx -= 140;
-      tip.style.left = lx + 'px'; tip.style.top = ly + 'px';
-    });
-    hit.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
-    svg.appendChild(hit);
+    container.appendChild(svg);
 
-    // X axis label
-    if (i % labelEvery === 0 || i === buckets.length - 1) {
-      const t = el('text', { x: ml + i * gap + gap / 2, y: H - 6,
-        'text-anchor': 'middle', fill: clrMuted, 'font-size': 9 });
-      t.textContent = label;
-      svg.appendChild(t);
-    }
+    const legend = document.createElement('div');
+    legend.style.cssText = 'display:flex;gap:12px;padding:2px 12px 6px;justify-content:flex-end;font-size:10px;color:var(--muted);';
+    legend.innerHTML = `<span><span style="display:inline-block;width:8px;height:8px;background:${clrAccent};border-radius:2px;vertical-align:middle;margin-right:4px"></span>You</span>`
+      + `<span><span style="display:inline-block;width:8px;height:8px;background:${clrAI};border-radius:2px;vertical-align:middle;margin-right:4px"></span>AI</span>`;
+    container.appendChild(legend);
   }
 
-  container.appendChild(svg);
+  draw();
 
-  // Legend
-  const legend = document.createElement('div');
-  legend.style.cssText = 'display:flex;gap:12px;padding:2px 12px 6px;justify-content:flex-end;font-size:10px;color:var(--muted);';
-  legend.innerHTML = `<span><span style="display:inline-block;width:8px;height:8px;background:${clrAccent};border-radius:2px;vertical-align:middle;margin-right:4px"></span>You</span>`
-    + `<span><span style="display:inline-block;width:8px;height:8px;background:${clrAI};border-radius:2px;vertical-align:middle;margin-right:4px"></span>AI</span>`;
-  container.appendChild(legend);
+  // Redraw when container width changes (stats panel open/close, column resize)
+  let rafId = null;
+  const ro = new ResizeObserver(() => {
+    cancelAnimationFrame(rafId);
+    rafId = requestAnimationFrame(draw);
+  });
+  ro.observe(container);
+  container._timelineRO = ro;
 }
 
 // ── Conversation viewer ────────────────────────────────────────────────────
@@ -261,7 +271,10 @@ function renderChatView(pane, conv, messages) {
     timelineBtn.classList.toggle('active', timelineOpen);
     timelinePanel.classList.toggle('open', timelineOpen);
     if (timelineOpen) requestAnimationFrame(() => renderTimelineChart(timelinePanel, messages, scroll));
-    else timelinePanel.innerHTML = '';
+    else {
+      if (timelinePanel._timelineRO) { timelinePanel._timelineRO.disconnect(); timelinePanel._timelineRO = null; }
+      timelinePanel.innerHTML = '';
+    }
   });
   pane.appendChild(timelinePanel);
 
