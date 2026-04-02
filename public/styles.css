@@ -1179,6 +1179,24 @@
     .git-hash { font-family: monospace; opacity: 0.5; flex-shrink: 0; }
     .git-subject { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .git-meta { opacity: 0.5; white-space: nowrap; flex-shrink: 0; }
+    /* ── Timeline panel ── */
+    .timeline-panel {
+      height: 0;
+      overflow: hidden;
+      flex-shrink: 0;
+      background: var(--surface);
+      transition: height 0.22s cubic-bezier(0.4,0,0.2,1),
+                  border-top-width 0.22s;
+      border-top: 0px solid var(--border);
+    }
+    .timeline-panel.open {
+      height: 172px;
+      border-top-width: 1px;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .timeline-panel { transition: none; }
+    }
+
     .editor-footer {
       padding: 8px 14px;
       border-top: 1px solid var(--border);
