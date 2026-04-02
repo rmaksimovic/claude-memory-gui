@@ -1,10 +1,13 @@
 // ── Project tree building ──────────────────────────────────────────────────
 function buildProjectTree(projectList) {
   const nonGlobal = projectList.filter(p => p.id !== '__global__');
-  // Parse each id into segments
+  // Parse each project into path segments.
+  // Prefer realPath (accurate for paths with spaces/dots) over naive encoded-ID split.
   const parsed = nonGlobal.map(p => ({
     project: p,
-    segments: p.id.replace(/^-/, '').split('-').filter(Boolean),
+    segments: p.realPath
+      ? p.realPath.split('/').filter(Boolean)
+      : p.id.replace(/^-/, '').split('-').filter(Boolean),
   }));
 
   // Find common prefix to strip (home dir segments shared by all)
@@ -53,6 +56,75 @@ function compressTree(node) {
   }
 }
 
+// ── Bookmark helpers ───────────────────────────────────────────────────────
+function toggleBookmark(id, e) {
+  e.stopPropagation();
+  if (bookmarks.has(id)) bookmarks.delete(id);
+  else bookmarks.add(id);
+  saveUIState({ bookmarks: [...bookmarks] });
+  renderProjects();
+}
+
+function makePinBtn(id, parent) {
+  const isPinned = bookmarks.has(id);
+  const btn = document.createElement('button');
+  btn.className = 'pin-btn' + (isPinned ? ' pinned' : '');
+  btn.title = isPinned ? 'Remove bookmark' : 'Bookmark this project';
+  const icon = document.createElement('span');
+  icon.className = 'material-symbols-outlined';
+  icon.textContent = 'bookmark';
+  btn.appendChild(icon);
+  btn.onclick = (e) => toggleBookmark(id, e);
+  // Insert before count badge so pin sits left of it in the flex row
+  const count = parent.querySelector('.project-count');
+  if (count) parent.insertBefore(btn, count);
+  else parent.appendChild(btn);
+  return btn;
+}
+
+function renderPinnedSection() {
+  const card = document.getElementById('pinned-card');
+  const list = document.getElementById('pinned-list');
+  if (!card || !list) return;
+
+  const pinned = projects.filter(p => bookmarks.has(p.id));
+  card.style.display = pinned.length === 0 ? 'none' : '';
+  list.innerHTML = '';
+
+  for (const proj of pinned) {
+    const item = document.createElement('div');
+    item.className = 'project-item' + (proj.id === activeProjectId ? ' active' : '');
+    item.style.paddingLeft = '12px';
+    const label = proj.id === '__global__' ? 'Global' : escHtml(proj.label);
+    item.innerHTML = `
+      <span class="material-symbols-outlined project-icon">${proj.id === '__global__' ? 'public' : 'folder_open'}</span>
+      <span class="project-label" title="${escAttr(proj.id)}">${label}</span>
+      <span class="project-count">${visibleCount(proj)}</span>
+    `;
+    item.onclick = () => { switchTab('memory'); selectProject(proj.id); };
+    list.appendChild(item);
+  }
+  applyPinnedCollapsed();
+}
+
+function togglePinnedCollapsed() {
+  pinnedCollapsed = !pinnedCollapsed;
+  saveUIState({ pinnedCollapsed });
+  applyPinnedCollapsed();
+}
+function applyPinnedCollapsed() {
+  document.getElementById('pinned-card')?.classList.toggle('collapsed', pinnedCollapsed);
+}
+
+function toggleDirsCollapsed() {
+  dirsCollapsed = !dirsCollapsed;
+  saveUIState({ dirsCollapsed });
+  applyDirsCollapsed();
+}
+function applyDirsCollapsed() {
+  document.getElementById('dirs-card')?.classList.toggle('collapsed', dirsCollapsed);
+}
+
 // ── Render projects ────────────────────────────────────────────────────────
 // Track which folders have been explicitly closed (everything open by default)
 const closedFolders = new Set();
@@ -62,6 +134,8 @@ function renderProjects() {
   el.innerHTML = '';
 
   const filtered = showEmptyProjects ? projects : projects.filter(p => p.id === '__global__' || visibleCount(p) > 0);
+
+  renderPinnedSection();
 
   // Global entry at top
   const global = filtered.find(p => p.id === '__global__');
@@ -74,6 +148,7 @@ function renderProjects() {
       <span class="project-label">Global</span>
       <span class="project-count">${visibleCount(global)}</span>
     `;
+    makePinBtn(global.id, item);
     item.onclick = () => { switchTab('memory'); selectProject(global.id); };
     el.appendChild(item);
   }
@@ -121,11 +196,15 @@ function renderTreeNode(container, node, depth, pathKey) {
         <span class="material-symbols-outlined project-icon">folder</span>
         <span class="tree-folder-label">${escHtml(key)}</span>
       `;
-      row.onclick = () => {
+      // Chevron-only collapse/expand
+      row.querySelector('.tree-chevron').onclick = (e) => {
+        e.stopPropagation();
         if (closedFolders.has(childPath)) closedFolders.delete(childPath);
         else closedFolders.add(childPath);
         renderProjects();
-        // If the folder itself is a project, also select it
+      };
+      // Row click selects the project if this folder is one — never collapses
+      row.onclick = () => {
         if (child.project) { switchTab('memory'); selectProject(child.project.id); }
       };
       folder.appendChild(row);
@@ -139,6 +218,7 @@ function renderTreeNode(container, node, depth, pathKey) {
         badge.className = 'project-count';
         badge.textContent = visibleCount(proj);
         row.appendChild(badge);
+        makePinBtn(proj.id, row);
         row.classList.toggle('active-folder', proj.id === activeProjectId);
       }
 
@@ -160,6 +240,7 @@ function renderTreeNode(container, node, depth, pathKey) {
         <span class="project-label" title="${escHtml(proj.id)}">${escHtml(key)}</span>
         <span class="project-count">${visibleCount(proj)}</span>
       `;
+      makePinBtn(proj.id, item);
       item.onclick = () => { switchTab('memory'); selectProject(proj.id); };
       container.appendChild(item);
     }
@@ -259,12 +340,20 @@ function toggleGroupFiles() {
   if (proj) renderFileList(proj, files, cachedHealth, cachedConversations, cachedMdFiles);
 }
 
+// ── Filter panel collapse toggle ───────────────────────────────────────────
+function toggleFiltersCollapsed() {
+  filtersCollapsed = !filtersCollapsed;
+  saveUIState({ filtersCollapsed });
+  applyFiltersCollapsed();
+}
+function applyFiltersCollapsed() {
+  document.getElementById('filter-section')?.classList.toggle('collapsed', filtersCollapsed);
+}
+
 // ── Show-empty toggle ──────────────────────────────────────────────────────
 function toggleShowEmpty() {
   showEmptyProjects = !showEmptyProjects;
   saveUIState({ showEmptyProjects });
-  const btn = document.getElementById('toggle-empty-btn');
-  btn.classList.toggle('on', showEmptyProjects);
-  btn.textContent = showEmptyProjects ? 'hide empty' : 'show empty';
+  document.getElementById('toggle-empty-btn')?.classList.toggle('active', showEmptyProjects);
   renderProjects();
 }

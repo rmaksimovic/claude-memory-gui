@@ -274,9 +274,56 @@
     }
     .sidebar-tab.active .sidebar-tab-icon { opacity: 1; font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 20; }
 
-    .sidebar-section { flex: 1; display: flex; flex-direction: column; min-height: 0; padding: 8px 0; }
-    #project-list { flex: 1; overflow-y: auto; min-height: 0; }
+    .sidebar-section { flex: 1; display: flex; flex-direction: column; min-height: 0; padding: 6px 8px 4px; gap: 4px; }
     .sidebar-section.hidden { display: none; }
+
+    /* ── Sidebar cards ── */
+    .sidebar-card {
+      background: var(--surface-card);
+      border-radius: 8px;
+      overflow: hidden;
+      flex-shrink: 0;
+      border: 1px solid var(--border);
+    }
+    #dirs-card {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .sidebar-card-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 10px;
+      cursor: pointer;
+      user-select: none;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+      transition: background 0.1s;
+    }
+    .sidebar-card.collapsed .sidebar-card-header { border-bottom-color: transparent; }
+    .sidebar-card-header:hover { background: color-mix(in srgb, var(--accent) 4%, transparent); }
+    .sidebar-card-icon {
+      font-size: 14px !important;
+      opacity: 0.5;
+      font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 20;
+    }
+    .sidebar-card-title { flex: 1; }
+    .sidebar-card-chevron {
+      font-size: 16px !important;
+      opacity: 0.4;
+      transition: transform 0.15s;
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+    }
+    .sidebar-card.collapsed .sidebar-card-chevron { transform: rotate(180deg); }
+    .sidebar-card-body { overflow: hidden; }
+    .sidebar-card.collapsed .sidebar-card-body { display: none; }
+    #project-list { flex: 1; overflow-y: auto; min-height: 0; }
 
     .sidebar-title {
       font-size: 9px;
@@ -327,10 +374,14 @@
     .tree-chevron {
       flex-shrink: 0;
       font-size: 16px !important;
-      transition: transform 0.2s;
+      transition: transform 0.2s, opacity 0.15s;
       color: var(--muted);
       opacity: 0.5;
+      cursor: pointer;
+      border-radius: 3px;
+      padding: 1px;
     }
+    .tree-chevron:hover { opacity: 1; }
     .tree-chevron.open { transform: rotate(90deg); }
     .project-icon {
       font-size: 15px !important;
@@ -398,54 +449,45 @@
       flex-shrink: 0;
     }
 
-    /* ── Sidebar section label ── */
-    .sidebar-section-label {
-      font-size: 9px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      color: var(--muted);
-      opacity: 0.6;
-      padding: 12px 16px 4px;
-    }
-
-    /* ── Filter section — sticky bottom of sidebar, collapsible ── */
-    .filter-section {
+    /* ── Pinned / bookmark ── */
+    .pin-btn {
       flex-shrink: 0;
-      border-bottom: 1px solid var(--border);
-    }
-    .filter-section-header {
+      opacity: 0;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0 2px;
+      color: var(--muted);
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      padding: 8px 16px 6px;
-      cursor: pointer;
-      user-select: none;
+      transition: opacity 0.1s, color 0.1s;
+      line-height: 1;
     }
-    .filter-section-header:hover { background: color-mix(in srgb, var(--accent) 4%, transparent); }
-    .filter-section-title {
-      font-size: 9px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      color: var(--muted);
-      opacity: 0.6;
+    .pin-btn .material-symbols-outlined {
+      font-size: 14px !important;
+      font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 20;
     }
-    .filter-chevron {
-      font-size: 16px;
-      color: var(--muted);
-      opacity: 0.5;
-      transition: transform 0.15s;
-      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+    .pin-btn.pinned {
+      opacity: 1;
+      color: var(--accent);
     }
-    .filter-section.collapsed .filter-chevron { transform: rotate(180deg); }
-    .filter-section.collapsed .filter-bar { display: none; }
+    .pin-btn.pinned .material-symbols-outlined {
+      font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+    }
+    .pin-btn:hover { color: var(--accent); }
+    .project-item:hover .pin-btn,
+    .tree-folder-row:hover .pin-btn { opacity: 1; }
+
+    .filter-divider {
+      border-top: 1px solid var(--border);
+      margin: 4px 10px;
+    }
 
     /* ── Filter bar — vertical toggle switches ── */
     .filter-bar {
       display: flex;
       flex-direction: column;
-      padding: 2px 0 8px;
+      padding: 4px 0 6px;
     }
     .filter-item {
       display: flex;
@@ -845,27 +887,6 @@
     .pricing-table-wrap { margin-top: 12px; }
     .pricing-table td, .pricing-table th { font-size: 10px; padding: 3px 0; }
     .pricing-table td:first-child { font-family: monospace; color: var(--muted); max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-    /* Sidebar header row with toggle */
-    .sidebar-header-row {
-      display: flex;
-      align-items: center;
-      padding: 6px 14px 4px;
-    }
-    .sidebar-header-row .sidebar-title { padding: 0; flex: 1; }
-    .toggle-empty {
-      font-size: 9px;
-      font-weight: 600;
-      color: var(--muted);
-      cursor: pointer;
-      border: 1px solid var(--border);
-      border-radius: 9999px;
-      padding: 2px 8px;
-      background: none;
-      white-space: nowrap;
-    }
-    .toggle-empty:hover { color: var(--text); border-color: var(--border-solid); }
-    .toggle-empty.on { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
 
     /* Commands in sidebar */
     .command-sidebar-item {
