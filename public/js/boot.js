@@ -60,11 +60,9 @@ async function boot() {
   ['memory', 'claudemd', 'conversations'].forEach(key => {
     document.getElementById(`fp-${key}`)?.classList.toggle('active', activeFilters.has(key));
   });
-  const emptyBtn = document.getElementById('toggle-empty-btn');
-  if (emptyBtn) {
-    emptyBtn.classList.toggle('on', showEmptyProjects);
-    emptyBtn.textContent = showEmptyProjects ? 'hide empty' : 'show empty';
-  }
+  applyFiltersCollapsed();
+  applyDirsCollapsed();
+  document.getElementById('toggle-empty-btn')?.classList.toggle('active', showEmptyProjects);
   [projects, commands] = await Promise.all([
     api('GET', '/api/projects'),
     api('GET', '/api/commands'),

@@ -54,12 +54,13 @@ function renderEditor(filePath, filename, content) {
   // Build meta line: extract frontmatter type + line count
   const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
   const fmType = fmMatch ? (fmMatch[1].match(/^type:\s*(.+)$/m) || [])[1]?.trim() : null;
+  const fmName = fmMatch ? (fmMatch[1].match(/^name:\s*(.+)$/m) || [])[1]?.trim() : null;
   const lineCount = content.split('\n').length;
   const metaParts = [fmType ? escHtml(fmType) + ' memory' : null, `${lineCount} lines`].filter(Boolean);
 
   const header = buildViewHeader(pane, {
     sectionLabel: 'Files',
-    title: filename.replace(/\.[^.]+$/, ''),
+    title: fmName || filename.replace(/\.[^.]+$/, ''),
     meta: metaParts.join(' · '),
   });
 

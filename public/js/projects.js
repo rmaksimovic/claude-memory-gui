@@ -97,7 +97,6 @@ function renderPinnedSection() {
     item.style.paddingLeft = '12px';
     const label = proj.id === '__global__' ? 'Global' : escHtml(proj.label);
     item.innerHTML = `
-      <span class="material-symbols-outlined project-icon">${proj.id === '__global__' ? 'public' : 'folder_open'}</span>
       <span class="project-label" title="${escAttr(proj.id)}">${label}</span>
       <span class="project-count">${visibleCount(proj)}</span>
     `;

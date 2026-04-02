@@ -66,27 +66,55 @@
 
     <!-- Projects list (memory tab) -->
     <div class="sidebar-section" id="section-memory">
-      <!-- Content type filter toggles -->
-      <div class="sidebar-section-label">File Type Filters</div>
-      <div class="filter-bar">
-        <button class="filter-item active" id="fp-memory" onclick="toggleFilter('memory')">
-          <span class="filter-label">Memory</span>
-          <span class="filter-switch"><span class="filter-knob"></span></span>
-        </button>
-        <button class="filter-item active" id="fp-claudemd" onclick="toggleFilter('claudemd')">
-          <span class="filter-label">MD Files</span>
-          <span class="filter-switch"><span class="filter-knob"></span></span>
-        </button>
-        <button class="filter-item active" id="fp-conversations" onclick="toggleFilter('conversations')">
-          <span class="filter-label">Conversations</span>
-          <span class="filter-switch"><span class="filter-knob"></span></span>
-        </button>
+
+      <!-- Pinned card (hidden when no bookmarks) -->
+      <div class="sidebar-card" id="pinned-card">
+        <div class="sidebar-card-header" onclick="togglePinnedCollapsed()">
+          <span class="material-symbols-outlined sidebar-card-icon">bookmark</span>
+          <span class="sidebar-card-title">Pinned</span>
+          <span class="material-symbols-outlined sidebar-card-chevron">expand_less</span>
+        </div>
+        <div class="sidebar-card-body" id="pinned-list"></div>
       </div>
-      <div class="sidebar-header-row">
-        <div class="sidebar-title">Directories</div>
-        <button class="toggle-empty on" id="toggle-empty-btn" onclick="toggleShowEmpty()">hide empty</button>
+
+      <!-- Directories card -->
+      <div class="sidebar-card" id="dirs-card">
+        <div class="sidebar-card-header" onclick="toggleDirsCollapsed()">
+          <span class="material-symbols-outlined sidebar-card-icon">folder</span>
+          <span class="sidebar-card-title">Directories</span>
+          <span class="material-symbols-outlined sidebar-card-chevron">expand_less</span>
+        </div>
+        <div class="sidebar-card-body" id="project-list"></div>
       </div>
-      <div id="project-list"></div>
+
+      <!-- File type filters card -->
+      <div class="sidebar-card" id="filter-section">
+        <div class="sidebar-card-header" onclick="toggleFiltersCollapsed()">
+          <span class="material-symbols-outlined sidebar-card-icon">tune</span>
+          <span class="sidebar-card-title">File Type Filters</span>
+          <span class="material-symbols-outlined sidebar-card-chevron filter-chevron">expand_less</span>
+        </div>
+        <div class="sidebar-card-body filter-bar" id="filter-bar-body">
+          <button class="filter-item active" id="fp-memory" onclick="toggleFilter('memory')">
+            <span class="filter-label">Memory</span>
+            <span class="filter-switch"><span class="filter-knob"></span></span>
+          </button>
+          <button class="filter-item active" id="fp-claudemd" onclick="toggleFilter('claudemd')">
+            <span class="filter-label">MD Files</span>
+            <span class="filter-switch"><span class="filter-knob"></span></span>
+          </button>
+          <button class="filter-item active" id="fp-conversations" onclick="toggleFilter('conversations')">
+            <span class="filter-label">Conversations</span>
+            <span class="filter-switch"><span class="filter-knob"></span></span>
+          </button>
+          <div class="filter-divider"></div>
+          <button class="filter-item" id="toggle-empty-btn" onclick="toggleShowEmpty()">
+            <span class="filter-label">Hide empty dirs</span>
+            <span class="filter-switch"><span class="filter-knob"></span></span>
+          </button>
+        </div>
+      </div>
+
       <div class="tree-footer" id="tree-footer"></div>
     </div>
 

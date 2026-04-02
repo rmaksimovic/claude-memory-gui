@@ -124,11 +124,13 @@ function buildViewHeader(pane, { sectionLabel, title, meta }) {
   const proj = projects.find(p => p.id === activeProjectId);
   const projLabel = proj ? (proj.label || proj.id.replace(/^-/, '').split('-').pop()) : '…';
   const sep = `<span class="material-symbols-outlined" style="font-size:14px;opacity:0.4">chevron_right</span>`;
+  // proj.label may contain '/' (e.g. "Golden Phoneix/FEHS") — render each segment separately
+  const projCrumbs = projLabel.split('/').map(s => `<span>${escHtml(s)}</span>`).join(sep);
   const header = document.createElement('div');
   header.className = 'conv-header';
   header.innerHTML = `
     <nav class="conv-breadcrumbs">
-      <span>Projects</span>${sep}<span>${escHtml(projLabel)}</span>${sep}
+      <span>Projects</span>${sep}${projCrumbs}${sep}
       <span class="conv-breadcrumb-active">${escHtml(sectionLabel)}</span>
     </nav>
     <div class="conv-title-row">
