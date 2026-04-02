@@ -51,9 +51,17 @@ function renderEditor(filePath, filename, content) {
   const pane = document.getElementById('editor-content');
   pane.innerHTML = '';
 
-  // Toolbar
-  const toolbar = document.createElement('div');
-  toolbar.className = 'editor-toolbar';
+  // Build meta line: extract frontmatter type + line count
+  const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+  const fmType = fmMatch ? (fmMatch[1].match(/^type:\s*(.+)$/m) || [])[1]?.trim() : null;
+  const lineCount = content.split('\n').length;
+  const metaParts = [fmType ? escHtml(fmType) + ' memory' : null, `${lineCount} lines`].filter(Boolean);
+
+  const header = buildViewHeader(pane, {
+    sectionLabel: 'Files',
+    title: filename.replace(/\.[^.]+$/, ''),
+    meta: metaParts.join(' · '),
+  });
 
   const blameBtn = document.createElement('button');
   blameBtn.className = 'stats-toggle-btn' + (blameGutterVisible ? ' active' : '');
@@ -65,9 +73,7 @@ function renderEditor(filePath, filename, content) {
     blameBtn.classList.toggle('active', blameGutterVisible);
     pane.classList.toggle('blame-hidden', !blameGutterVisible);
   };
-
-  toolbar.appendChild(blameBtn);
-  pane.appendChild(toolbar);
+  header.querySelector('.conv-title-actions').appendChild(blameBtn);
   pane.classList.toggle('blame-hidden', !blameGutterVisible);
 
   // Git info bar (async — inserts itself when ready)

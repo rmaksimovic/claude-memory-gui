@@ -34,44 +34,25 @@ function renderChatView(pane, conv, messages) {
 
   const userTurns = messages.filter(m => m.type === 'user' && !isSystemOnlyMessage(extractTextContent(m.message?.content))).length;
 
-  // ── Conv header: breadcrumbs + title + actions ──
-  const header = document.createElement('div');
-  header.className = 'conv-header';
-
-  const proj = projects.find(p => p.id === activeProjectId);
-  const projLabel = proj ? (proj.label || proj.id.replace(/^-/, '').split('-').pop()) : 'Conversations';
+  // ── Conv header: shared structure with file editor ──
   const titleText = stripSystemTags(conv.firstUserMessage || '').slice(0, 80) || conv.id;
+  const header = buildViewHeader(pane, {
+    sectionLabel: 'Conversations',
+    title: titleText,
+    meta: `${userTurns} turns · ${escHtml(conv.model || '')}`,
+  });
 
-  header.innerHTML = `
-    <nav class="conv-breadcrumbs">
-      <span>Projects</span>
-      <span class="material-symbols-outlined" style="font-size:14px;opacity:0.4">chevron_right</span>
-      <span>${escHtml(projLabel)}</span>
-      <span class="material-symbols-outlined" style="font-size:14px;opacity:0.4">chevron_right</span>
-      <span class="conv-breadcrumb-active">Conversations</span>
-    </nav>
-    <div class="conv-title-row">
-      <h2 class="conv-title">${escHtml(titleText)}</h2>
-      <div class="conv-title-actions">
-        <button class="stats-toggle-btn${statsPanelOpen ? ' active' : ''}" id="stats-toggle-btn">
-          <span class="material-symbols-outlined" style="font-size:14px">payments</span>
-          Cost &amp; Tokens
-        </button>
-      </div>
-    </div>
-    <div class="conv-meta">${userTurns} turns · ${escHtml(conv.model || '')}</div>
-  `;
-  pane.appendChild(header);
-
-  // Keep toolbar reference for wiring up events
-  const toolbar = header;
-
-  toolbar.querySelector('#stats-toggle-btn').addEventListener('click', () => {
+  const statsBtn = document.createElement('button');
+  statsBtn.className = 'stats-toggle-btn' + (statsPanelOpen ? ' active' : '');
+  statsBtn.id = 'stats-toggle-btn';
+  statsBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:14px">payments</span> Cost &amp; Tokens';
+  statsBtn.addEventListener('click', () => {
     statsPanelOpen = !statsPanelOpen;
-    toolbar.querySelector('#stats-toggle-btn').classList.toggle('active', statsPanelOpen);
+    statsBtn.classList.toggle('active', statsPanelOpen);
     if (statsPanelOpen) showConvStatsPanel(messages, conv);
     else hideConvStatsPanel();
   });
+  header.querySelector('.conv-title-actions').appendChild(statsBtn);
 
   // Look up the tab so we can persist the summary across tab switches
   const tab = openTabs.find(t => t.filePath === conv.filePath && t.type === 'conv');
@@ -127,7 +108,7 @@ function renderChatView(pane, conv, messages) {
       summarizeBtn.textContent = '✦ Summarize';
     }
   });
-  toolbar.querySelector('.conv-title-actions').prepend(summarizeBtn);
+  header.querySelector('.conv-title-actions').prepend(summarizeBtn);
 
   const scroll = document.createElement('div');
   scroll.className = 'chat-scroll';

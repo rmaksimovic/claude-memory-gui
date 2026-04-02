@@ -59,3 +59,28 @@ function stripSystemTags(text) {
 function isSystemOnlyMessage(text) {
   return stripSystemTags(text) === '';
 }
+
+// ── Shared view header (used by both file editor and conversation view) ──────
+// Builds the .conv-header element (breadcrumbs + large title + actions slot)
+// and appends it to pane. Returns the header element so callers can append
+// their own action buttons into header.querySelector('.conv-title-actions').
+function buildViewHeader(pane, { sectionLabel, title, meta }) {
+  const proj = projects.find(p => p.id === activeProjectId);
+  const projLabel = proj ? (proj.label || proj.id.replace(/^-/, '').split('-').pop()) : '…';
+  const sep = `<span class="material-symbols-outlined" style="font-size:14px;opacity:0.4">chevron_right</span>`;
+  const header = document.createElement('div');
+  header.className = 'conv-header';
+  header.innerHTML = `
+    <nav class="conv-breadcrumbs">
+      <span>Projects</span>${sep}<span>${escHtml(projLabel)}</span>${sep}
+      <span class="conv-breadcrumb-active">${escHtml(sectionLabel)}</span>
+    </nav>
+    <div class="conv-title-row">
+      <h2 class="conv-title">${escHtml(title)}</h2>
+      <div class="conv-title-actions"></div>
+    </div>
+    <div class="conv-meta">${meta}</div>
+  `;
+  pane.appendChild(header);
+  return header;
+}
