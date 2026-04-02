@@ -56,13 +56,13 @@ function renderEditor(filePath, filename, content) {
   toolbar.className = 'editor-toolbar';
 
   const blameBtn = document.createElement('button');
-  blameBtn.className = 'group-toggle-btn' + (blameGutterVisible ? ' on' : '');
-  blameBtn.innerHTML = '<span class="gtb-dot"></span>Blame';
+  blameBtn.className = 'stats-toggle-btn' + (blameGutterVisible ? ' active' : '');
+  blameBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:14px">history</span> Blame';
   blameBtn.style.display = 'none';
   blameBtn.onclick = () => {
     blameGutterVisible = !blameGutterVisible;
     saveUIState({ blameGutterVisible });
-    blameBtn.classList.toggle('on', blameGutterVisible);
+    blameBtn.classList.toggle('active', blameGutterVisible);
     pane.classList.toggle('blame-hidden', !blameGutterVisible);
   };
 
