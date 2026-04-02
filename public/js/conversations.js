@@ -21,8 +21,9 @@ function buildTimelineData(messages) {
   else if (span < 30 * 86400e3)   bucketMs = 86400e3;
   else                             bucketMs = 7 * 86400e3;
 
-  const bucketStart = Math.floor(first / bucketMs) * bucketMs;
-  const count = Math.ceil((last - bucketStart) / bucketMs) + 1;
+  // Pad one empty slot before and after so the chart shows silence at both ends
+  const bucketStart = Math.floor(first / bucketMs) * bucketMs - bucketMs;
+  const count = Math.ceil((last - bucketStart) / bucketMs) + 2;
   const buckets = Array.from({ length: count }, (_, i) => ({
     ts: bucketStart + i * bucketMs, user: 0, ai: 0,
   }));
