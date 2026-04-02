@@ -54,60 +54,8 @@ function renderChatView(pane, conv, messages) {
   });
   header.querySelector('.conv-title-actions').appendChild(statsBtn);
 
-  // Look up the tab so we can persist the summary across tab switches
   const tab = openTabs.find(t => t.filePath === conv.filePath && t.type === 'conv');
-
-  function normaliseSummary(text) {
-    // Claude often returns "• bullet" lines — convert to markdown list so marked renders them as <li>
-    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-    const mdLines = lines.map(l => /^[•·▪▸\-]/.test(l) ? '- ' + l.replace(/^[•·▪▸\-]\s*/, '') : l);
-    return mdLines.join('\n');
-  }
-
-  function showSummary(text) {
-    summaryPanel.innerHTML = `
-      <div class="conv-summary-header">
-        <span class="conv-summary-title">✦ Summary</span>
-        <button class="conv-summary-close" title="Dismiss">×</button>
-      </div>
-      <div class="conv-summary-body">${marked.parse(normaliseSummary(text))}</div>
-    `;
-    summaryPanel.style.display = '';
-    summaryPanel.querySelector('.conv-summary-close').addEventListener('click', () => {
-      summaryPanel.style.display = 'none';
-      if (tab) tab.summary = null;
-    });
-  }
-
-  // Summary panel
-  const summaryPanel = document.createElement('div');
-  summaryPanel.className = 'conv-summary-panel';
-  summaryPanel.style.display = 'none';
-  pane.appendChild(summaryPanel);
-
-  // Restore summary if it was already generated for this tab
-  if (tab?.summary) showSummary(tab.summary);
-
-  // Summarize button
-  const summarizeBtn = document.createElement('button');
-  summarizeBtn.className = 'summarize-btn';
-  summarizeBtn.textContent = '✦ Summarize';
-  summarizeBtn.addEventListener('click', async () => {
-    summarizeBtn.disabled = true;
-    summarizeBtn.textContent = 'Summarizing…';
-    summaryPanel.style.display = 'none';
-    try {
-      const { summary } = await api('POST', '/api/summarize-conversation', { filePath: conv.filePath });
-      if (tab) tab.summary = summary;
-      showSummary(summary);
-    } catch (e) {
-      summaryPanel.innerHTML = `<div class="conv-summary-error">Failed: ${escHtml(e.message)}</div>`;
-      summaryPanel.style.display = '';
-    } finally {
-      summarizeBtn.disabled = false;
-      summarizeBtn.textContent = '✦ Summarize';
-    }
-  });
+  const summarizeBtn = buildSummarizeFeature(pane, tab, conv.filePath);
   header.querySelector('.conv-title-actions').prepend(summarizeBtn);
 
   const scroll = document.createElement('div');

@@ -60,6 +60,62 @@ function isSystemOnlyMessage(text) {
   return stripSystemTags(text) === '';
 }
 
+// ── Shared summarize feature (summary panel + button, works for any file) ────
+// Appends the summary panel to pane and returns the Summarize button so the
+// caller can place it in .conv-title-actions. filePath drives the API endpoint:
+// .jsonl → /api/summarize-conversation, everything else → /api/summarize-file.
+function buildSummarizeFeature(pane, tab, filePath) {
+  function normaliseSummary(text) {
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    return lines.map(l => /^[•·▪▸\-]/.test(l) ? '- ' + l.replace(/^[•·▪▸\-]\s*/, '') : l).join('\n');
+  }
+
+  const summaryPanel = document.createElement('div');
+  summaryPanel.className = 'conv-summary-panel';
+  summaryPanel.style.display = 'none';
+  pane.appendChild(summaryPanel);
+
+  function showSummary(text) {
+    summaryPanel.innerHTML = `
+      <div class="conv-summary-header">
+        <span class="conv-summary-title">✦ Summary</span>
+        <button class="conv-summary-close" title="Dismiss">×</button>
+      </div>
+      <div class="conv-summary-body">${marked.parse(normaliseSummary(text))}</div>
+    `;
+    summaryPanel.style.display = '';
+    summaryPanel.querySelector('.conv-summary-close').addEventListener('click', () => {
+      summaryPanel.style.display = 'none';
+      if (tab) tab.summary = null;
+    });
+  }
+
+  if (tab?.summary) showSummary(tab.summary);
+
+  const endpoint = filePath.endsWith('.jsonl') ? '/api/summarize-conversation' : '/api/summarize-file';
+  const btn = document.createElement('button');
+  btn.className = 'summarize-btn';
+  btn.textContent = '✦ Summarize';
+  btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    btn.textContent = 'Summarizing…';
+    summaryPanel.style.display = 'none';
+    try {
+      const { summary } = await api('POST', endpoint, { filePath });
+      if (tab) tab.summary = summary;
+      showSummary(summary);
+    } catch (e) {
+      summaryPanel.innerHTML = `<div class="conv-summary-error">Failed: ${escHtml(e.message)}</div>`;
+      summaryPanel.style.display = '';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '✦ Summarize';
+    }
+  });
+
+  return btn;
+}
+
 // ── Shared view header (used by both file editor and conversation view) ──────
 // Builds the .conv-header element (breadcrumbs + large title + actions slot)
 // and appends it to pane. Returns the header element so callers can append

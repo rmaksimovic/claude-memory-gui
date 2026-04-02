@@ -7,7 +7,7 @@ const path = require('path');
 const { readFileOrNull, ensureDir, safeReadDir, listProjectMdFiles } = require('./lib/fileUtils');
 const { listProjects, listMemoryFiles, buildSearchIndex } = require('./lib/projects');
 const { syncMemoryIndex, healthCheck } = require('./lib/health');
-const { listConversations, parseFullConversation, forkConversation, summarizeConversation, computeProjectCost } = require('./lib/conversations');
+const { listConversations, parseFullConversation, forkConversation, summarizeConversation, summarizeFile, computeProjectCost } = require('./lib/conversations');
 const { MODEL_PRICING } = require('./lib/config');
 const { GLOBAL_COMMANDS_DIR, PLANS_DIR, listCommands } = require('./lib/commands');
 const { gitInfoHandler, blameHandler, gitAutoTrack } = require('./lib/git');
@@ -185,6 +185,17 @@ app.post('/api/summarize-conversation', async (req, res) => {
   if (!filePath) return res.status(400).json({ error: 'Missing filePath' });
   try {
     const summary = await summarizeConversation(filePath);
+    res.json({ summary });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/summarize-file', async (req, res) => {
+  const { filePath } = req.body;
+  if (!filePath) return res.status(400).json({ error: 'Missing filePath' });
+  try {
+    const summary = await summarizeFile(filePath);
     res.json({ summary });
   } catch (e) {
     res.status(500).json({ error: e.message });

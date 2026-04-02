@@ -63,6 +63,10 @@ function renderEditor(filePath, filename, content) {
     meta: metaParts.join(' · '),
   });
 
+  const tab = openTabs.find(t => t.filePath === filePath && t.type === 'file');
+  const summarizeBtn = buildSummarizeFeature(pane, tab, filePath);
+  header.querySelector('.conv-title-actions').prepend(summarizeBtn);
+
   const blameBtn = document.createElement('button');
   blameBtn.className = 'stats-toggle-btn' + (blameGutterVisible ? ' active' : '');
   blameBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:14px">history</span> Blame';
