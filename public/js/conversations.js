@@ -32,16 +32,39 @@ async function openConversation(conv, permanent = false) {
 function renderChatView(pane, conv, messages) {
   pane.innerHTML = '';
 
-  const toolbar = document.createElement('div');
-  toolbar.className = 'editor-toolbar';
   const userTurns = messages.filter(m => m.type === 'user' && !isSystemOnlyMessage(extractTextContent(m.message?.content))).length;
-  toolbar.innerHTML = `
-    <span style="font-size:11px;color:var(--muted)">${userTurns} turns · ${escHtml(conv.model || '')}</span>
-    <div style="margin-left:auto;display:flex;gap:6px;align-items:center;">
-      <button class="stats-toggle-btn${statsPanelOpen ? ' active' : ''}" id="stats-toggle-btn">Cost & Tokens</button>
+
+  // ── Conv header: breadcrumbs + title + actions ──
+  const header = document.createElement('div');
+  header.className = 'conv-header';
+
+  const proj = projects.find(p => p.id === activeProjectId);
+  const projLabel = proj ? (proj.label || proj.id.replace(/^-/, '').split('-').pop()) : 'Conversations';
+  const titleText = stripSystemTags(conv.firstUserMessage || '').slice(0, 80) || conv.id;
+
+  header.innerHTML = `
+    <nav class="conv-breadcrumbs">
+      <span>Projects</span>
+      <span class="material-symbols-outlined" style="font-size:14px;opacity:0.4">chevron_right</span>
+      <span>${escHtml(projLabel)}</span>
+      <span class="material-symbols-outlined" style="font-size:14px;opacity:0.4">chevron_right</span>
+      <span class="conv-breadcrumb-active">Conversations</span>
+    </nav>
+    <div class="conv-title-row">
+      <h2 class="conv-title">${escHtml(titleText)}</h2>
+      <div class="conv-title-actions">
+        <button class="stats-toggle-btn${statsPanelOpen ? ' active' : ''}" id="stats-toggle-btn">
+          <span class="material-symbols-outlined" style="font-size:14px">payments</span>
+          Cost &amp; Tokens
+        </button>
+      </div>
     </div>
+    <div class="conv-meta">${userTurns} turns · ${escHtml(conv.model || '')}</div>
   `;
-  pane.appendChild(toolbar);
+  pane.appendChild(header);
+
+  // Keep toolbar reference for wiring up events
+  const toolbar = header;
 
   toolbar.querySelector('#stats-toggle-btn').addEventListener('click', () => {
     statsPanelOpen = !statsPanelOpen;
@@ -104,7 +127,7 @@ function renderChatView(pane, conv, messages) {
       summarizeBtn.textContent = '✦ Summarize';
     }
   });
-  toolbar.querySelector('div').prepend(summarizeBtn);
+  toolbar.querySelector('.conv-title-actions').prepend(summarizeBtn);
 
   const scroll = document.createElement('div');
   scroll.className = 'chat-scroll';
@@ -170,10 +193,10 @@ function renderChatMessages(scroll, messages, filePath) {
     const header = document.createElement('div');
     header.className = 'chat-turn-header';
 
-    const roleEl = document.createElement('div');
-    roleEl.className = 'chat-role';
-    roleEl.textContent = isUser ? 'You' : 'Claude';
-    header.appendChild(roleEl);
+    const avatarEl = document.createElement('div');
+    avatarEl.className = `chat-avatar ${isUser ? 'chat-avatar-user' : 'chat-avatar-ai'}`;
+    avatarEl.textContent = isUser ? 'You' : 'AI';
+    header.appendChild(avatarEl);
 
     if (filePath && record.uuid) {
       const forkBtn = document.createElement('button');

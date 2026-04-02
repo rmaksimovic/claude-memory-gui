@@ -9,6 +9,9 @@ function applyGridCols() {
   layout.style.gridTemplateColumns =
     `${colWidths.sidebar}px 2px ${colWidths.filelist}px 2px 1fr` +
     (hasStats ? ` 2px ${colWidths.stats}px` : '');
+  // Keep header brand column in sync with sidebar width
+  const header = document.querySelector('header');
+  if (header) header.style.gridTemplateColumns = `${colWidths.sidebar}px 1fr auto`;
 }
 
 document.addEventListener('mousedown', e => {

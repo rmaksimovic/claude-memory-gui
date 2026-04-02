@@ -5,15 +5,30 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Claude Memory GUI</title>
   <link rel="icon" type="image/png" href="claude-code-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
 
 <!-- Header -->
 <header>
-  <h1>Claude Memory GUI</h1>
+  <!-- Brand — aligned with sidebar width -->
+  <div class="header-brand">
+    <div class="sidebar-brand-icon">
+      <span class="material-symbols-outlined">memory</span>
+    </div>
+    <div class="sidebar-brand-text">
+      <div class="sidebar-brand-title">Claude Memory</div>
+      <div class="sidebar-brand-sub">File System</div>
+    </div>
+  </div>
+  <!-- Search — centered in remaining space -->
   <div id="search-bar">
-    <input id="search-input" type="text" placeholder="Search claude files..." autocomplete="off" />
+    <span class="material-symbols-outlined search-icon">search</span>
+    <input id="search-input" type="text" placeholder="Search files…" autocomplete="off" />
     <select id="type-filter">
       <option value="">All</option>
       <option value="claude_md">md file</option>
@@ -21,7 +36,10 @@
       <option value="chat">chat</option>
     </select>
   </div>
-  <div id="status-dot" title="Live sync active"></div>
+  <!-- Actions -->
+  <div class="header-actions">
+    <div id="status-dot" title="Live sync active"></div>
+  </div>
 </header>
 
 <!-- Search results overlay -->
@@ -32,22 +50,40 @@
 
   <!-- Sidebar with tabs -->
   <div class="sidebar">
+
+    <!-- Nav tabs as icon rows -->
     <div class="sidebar-tabs">
-      <div class="sidebar-tab active" id="tab-memory" onclick="switchTab('memory')">Projects</div>
-      <div class="sidebar-tab" id="tab-commands" onclick="switchTab('commands')">Commands</div>
-      <div class="sidebar-tab" id="tab-mcp" onclick="switchTab('mcp')">MCP</div>
+      <div class="sidebar-tab active" id="tab-memory" onclick="switchTab('memory')">
+        <span class="material-symbols-outlined sidebar-tab-icon">folder</span>Projects
+      </div>
+      <div class="sidebar-tab" id="tab-commands" onclick="switchTab('commands')">
+        <span class="material-symbols-outlined sidebar-tab-icon">terminal</span>Commands
+      </div>
+      <div class="sidebar-tab" id="tab-mcp" onclick="switchTab('mcp')">
+        <span class="material-symbols-outlined sidebar-tab-icon">hub</span>MCP
+      </div>
     </div>
 
     <!-- Projects list (memory tab) -->
     <div class="sidebar-section" id="section-memory">
-      <!-- Content type filter bar -->
+      <!-- Content type filter toggles -->
+      <div class="sidebar-section-label">File Type Filters</div>
       <div class="filter-bar">
-        <button class="filter-item active" id="fp-memory" onclick="toggleFilter('memory')"><span class="filter-dot"></span>Memory</button>
-        <button class="filter-item active" id="fp-claudemd" onclick="toggleFilter('claudemd')"><span class="filter-dot"></span>MD files</button>
-        <button class="filter-item active" id="fp-conversations" onclick="toggleFilter('conversations')"><span class="filter-dot"></span>Chats</button>
+        <button class="filter-item active" id="fp-memory" onclick="toggleFilter('memory')">
+          <span class="filter-label">Memory</span>
+          <span class="filter-switch"><span class="filter-knob"></span></span>
+        </button>
+        <button class="filter-item active" id="fp-claudemd" onclick="toggleFilter('claudemd')">
+          <span class="filter-label">MD Files</span>
+          <span class="filter-switch"><span class="filter-knob"></span></span>
+        </button>
+        <button class="filter-item active" id="fp-conversations" onclick="toggleFilter('conversations')">
+          <span class="filter-label">Conversations</span>
+          <span class="filter-switch"><span class="filter-knob"></span></span>
+        </button>
       </div>
       <div class="sidebar-header-row">
-        <div class="sidebar-title">Projects</div>
+        <div class="sidebar-title">Directories</div>
         <button class="toggle-empty on" id="toggle-empty-btn" onclick="toggleShowEmpty()">hide empty</button>
       </div>
       <div id="project-list"></div>

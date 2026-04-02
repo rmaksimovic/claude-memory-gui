@@ -70,7 +70,8 @@ function renderProjects() {
     item.className = 'project-item' + (global.id === activeProjectId ? ' active' : '');
     item.style.paddingLeft = '12px';
     item.innerHTML = `
-      <span class="project-label">🌐 Global</span>
+      <span class="material-symbols-outlined project-icon">public</span>
+      <span class="project-label">Global</span>
       <span class="project-count">${visibleCount(global)}</span>
     `;
     item.onclick = () => { switchTab('memory'); selectProject(global.id); };
@@ -116,7 +117,8 @@ function renderTreeNode(container, node, depth, pathKey) {
       row.className = 'tree-folder-row';
       row.style.paddingLeft = indent + 'px';
       row.innerHTML = `
-        <span class="tree-chevron${isOpen ? ' open' : ''}">▶</span>
+        <span class="material-symbols-outlined tree-chevron${isOpen ? ' open' : ''}">chevron_right</span>
+        <span class="material-symbols-outlined project-icon">folder</span>
         <span class="tree-folder-label">${escHtml(key)}</span>
       `;
       row.onclick = () => {
@@ -154,6 +156,7 @@ function renderTreeNode(container, node, depth, pathKey) {
       item.className = 'project-item' + (proj.id === activeProjectId ? ' active' : '');
       item.style.paddingLeft = (indent + 20) + 'px';
       item.innerHTML = `
+        <span class="material-symbols-outlined project-icon">folder_open</span>
         <span class="project-label" title="${escHtml(proj.id)}">${escHtml(key)}</span>
         <span class="project-count">${visibleCount(proj)}</span>
       `;
