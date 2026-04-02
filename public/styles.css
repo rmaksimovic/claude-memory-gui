@@ -768,7 +768,9 @@
     .stats-toggle-btn:hover { color: var(--text); border-color: var(--border-solid); }
     .stats-toggle-btn.active { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
     .conv-stats-panel-header {
-      padding: 10px 16px;
+      height: 40px;
+      box-sizing: border-box;
+      padding: 0 16px;
       border-bottom: 1px solid var(--border);
       font-size: 9px;
       font-weight: 700;
@@ -777,6 +779,8 @@
       color: var(--muted);
       flex-shrink: 0;
       background: var(--surface-card);
+      display: flex;
+      align-items: center;
     }
 
     /* ── Stats tab ── */
@@ -875,14 +879,18 @@
       display: flex;
       align-items: center;
       justify-content: flex-start;
-      padding: 6px 10px;
+      height: 40px;
+      box-sizing: border-box;
+      padding: 0 10px;
       border-bottom: 1px solid var(--border);
       gap: 6px;
       flex-shrink: 0;
     }
     .file-list-header span { font-size: 11px; color: var(--muted); flex: 1; }
     .file-search-row {
-      padding: 6px 10px;
+      height: 40px;
+      box-sizing: border-box;
+      padding: 0 10px;
       border-bottom: 1px solid var(--border);
       flex-shrink: 0;
       display: flex;
@@ -1089,7 +1097,9 @@
       flex-shrink: 0;
       background: var(--surface);
       border-bottom: 1px solid var(--border);
-      padding: 6px 8px 0;
+      height: 40px;
+      box-sizing: border-box;
+      padding: 4px 8px 0;
       gap: 2px;
       scrollbar-width: none;
     }
