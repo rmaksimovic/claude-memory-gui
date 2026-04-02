@@ -409,6 +409,38 @@
       padding: 12px 16px 4px;
     }
 
+    /* ── Filter section — sticky bottom of sidebar, collapsible ── */
+    .filter-section {
+      flex-shrink: 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .filter-section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 16px 6px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .filter-section-header:hover { background: color-mix(in srgb, var(--accent) 4%, transparent); }
+    .filter-section-title {
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      opacity: 0.6;
+    }
+    .filter-chevron {
+      font-size: 16px;
+      color: var(--muted);
+      opacity: 0.5;
+      transition: transform 0.15s;
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+    }
+    .filter-section.collapsed .filter-chevron { transform: rotate(180deg); }
+    .filter-section.collapsed .filter-bar { display: none; }
+
     /* ── Filter bar — vertical toggle switches ── */
     .filter-bar {
       display: flex;
@@ -1195,6 +1227,14 @@
     }
     @media (prefers-reduced-motion: reduce) {
       .timeline-panel { transition: none; }
+    }
+    .chat-turn.timeline-highlight {
+      border-radius: 8px;
+      animation: timeline-flash 1.2s ease forwards;
+    }
+    @keyframes timeline-flash {
+      0%   { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+      100% { background: transparent; }
     }
 
     .editor-footer {

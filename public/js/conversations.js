@@ -43,7 +43,7 @@ function fmtBucketLabel(ts, bucketMs) {
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-function renderTimelineChart(container, messages) {
+function renderTimelineChart(container, messages, scrollEl) {
   container.innerHTML = '';
   const data = buildTimelineData(messages);
   if (!data) {
@@ -125,6 +125,25 @@ function renderTimelineChart(container, messages) {
     const hit = el('rect', { x: ml + i * gap, y: mt, width: gap, height: cH, fill: 'transparent' });
     if (total > 0) hit.style.cursor = 'pointer';
     const label = fmtBucketLabel(b.ts, bucketMs);
+
+    // Click → scroll to first message in bucket
+    if (total > 0 && scrollEl) {
+      hit.addEventListener('click', () => {
+        const bucketEnd = b.ts + bucketMs;
+        const turns = scrollEl.querySelectorAll('.chat-turn[data-ts]');
+        let target = null;
+        for (const turn of turns) {
+          const ts = +turn.dataset.ts;
+          if (ts >= b.ts && ts < bucketEnd) { target = turn; break; }
+        }
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          target.classList.add('timeline-highlight');
+          setTimeout(() => target.classList.remove('timeline-highlight'), 1200);
+        }
+      });
+    }
+
     hit.addEventListener('mouseenter', () => {
       if (!total) return;
       tip.innerHTML = `<strong>${escHtml(label)}</strong><br>`
@@ -241,7 +260,7 @@ function renderChatView(pane, conv, messages) {
     timelineOpen = !timelineOpen;
     timelineBtn.classList.toggle('active', timelineOpen);
     timelinePanel.classList.toggle('open', timelineOpen);
-    if (timelineOpen) requestAnimationFrame(() => renderTimelineChart(timelinePanel, messages));
+    if (timelineOpen) requestAnimationFrame(() => renderTimelineChart(timelinePanel, messages, scroll));
     else timelinePanel.innerHTML = '';
   });
   pane.appendChild(timelinePanel);
@@ -300,6 +319,7 @@ function renderChatMessages(scroll, messages, filePath) {
 
     const turn = document.createElement('div');
     turn.className = 'chat-turn';
+    if (record.timestamp) turn.dataset.ts = new Date(record.timestamp).getTime();
 
     const header = document.createElement('div');
     header.className = 'chat-turn-header';
