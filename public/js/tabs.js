@@ -25,7 +25,11 @@ function renderTabBar() {
   for (const tab of openTabs) {
     const item = document.createElement('div');
     item.className = 'tab-item' + (tab.id === activeTabId ? ' active' : '') + (tab.preview ? ' preview' : '');
-    const icon = tab.type === 'conv' ? '<img src="claude-code-icon.png" class="tab-claude-icon" />' : '📄';
+    const icon = tab.type === 'conv'
+      ? '<img src="claude-code-icon.png" class="tab-claude-icon" />'
+      : tab.type === 'mcp-info'
+        ? '<span class="material-symbols-outlined" style="font-size:13px;vertical-align:middle;color:var(--ok)">hub</span>'
+        : '📄';
     const label = tab.type === 'conv'
       ? (tab.conv.firstUserMessage || 'Conversation').slice(0, 35)
       : tab.filename;
@@ -59,6 +63,13 @@ function activateTab(id) {
     editorMode = tab.mode;
     hideConvStatsPanel();
     renderEditor(tab.filePath, tab.filename, tab.content);
+  } else if (tab.type === 'mcp-info') {
+    activeFilePath = null;
+    activeConvPath = null;
+    modified = false;
+    activeMcpKey = _mcpKey(tab.server, tab.group);
+    hideConvStatsPanel();
+    renderMcpInfoCard(document.getElementById('editor-content'), tab.server, tab.group);
   } else {
     activeConvPath = tab.filePath;
     activeFilePath = null;
@@ -90,6 +101,11 @@ function closeTab(id) {
       activeFileContent = next.content; modified = next.modified; editorMode = next.mode;
       hideConvStatsPanel();
       renderEditor(next.filePath, next.filename, next.content);
+    } else if (next.type === 'mcp-info') {
+      activeFilePath = null; activeConvPath = null; modified = false;
+      activeMcpKey = _mcpKey(next.server, next.group);
+      hideConvStatsPanel();
+      renderMcpInfoCard(ec, next.server, next.group);
     } else {
       activeConvPath = next.filePath; activeFilePath = null; modified = false;
       renderChatView(ec, next.conv, next.messages);

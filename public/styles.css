@@ -912,6 +912,17 @@
       flex-shrink: 0;
     }
 
+    /* ── Skills namespace sub-header ── */
+    .skills-ns-header {
+      padding: 4px 14px 2px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .skills-ns-header.indented { padding-left: 28px; }
+
     /* ── File list ── */
     .file-list-col {
       display: flex;
@@ -1529,19 +1540,115 @@
     .command-detail-scope { font-size: 10px; color: var(--muted); margin-bottom: 4px; }
     .command-detail-desc { font-size: 11px; color: var(--muted); line-height: 1.5; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 
-    /* ── MCP servers ── */
+    /* ── MCP servers — middle panel ── */
     .mcp-server-item {
       padding: 11px 16px;
       border-left: 3px solid transparent;
       cursor: pointer;
       border-bottom: 1px solid var(--border);
     }
-    .mcp-server-item:hover { background: color-mix(in srgb, var(--ok) 5%, transparent); }
-    .mcp-server-item.active { border-left-color: var(--ok); background: color-mix(in srgb, var(--ok) 6%, transparent); }
+    .mcp-server-item:hover { background: var(--surface); }
+    .mcp-server-item.active { border-left-color: var(--accent); background: color-mix(in srgb, var(--accent) 6%, transparent); }
     .mcp-server-name { font-size: 13px; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
     .mcp-server-cmd { font-size: 11px; color: var(--muted); font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mcp-config-path { font-size: 10px; color: var(--muted); font-weight: 400; text-transform: none; letter-spacing: 0; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mcp-version-tag { font-size: 10px; color: var(--muted); margin-left: 6px; font-weight: 400; text-transform: none; letter-spacing: 0; }
+
+    /* ── MCP badge types ── */
     .mcp-type-badge { font-size: 10px; font-weight: 600; padding: 1px 7px; border-radius: 9999px; background: color-mix(in srgb, var(--ok) 12%, transparent); color: var(--ok); }
     .mcp-env-badge { font-size: 10px; font-weight: 600; padding: 1px 7px; border-radius: 9999px; background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); }
+    .mcp-plugin-badge { font-size: 10px; font-weight: 600; padding: 1px 7px; border-radius: 9999px; background: color-mix(in srgb, var(--warn) 15%, transparent); color: color-mix(in srgb, var(--warn) 80%, var(--text)); }
+
+    /* ── MCP servers — sidebar ── */
+    .mcp-sidebar-section-hdr {
+      padding: 10px 14px 4px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .mcp-sidebar-project-header {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 6px 12px 6px 10px;
+      cursor: pointer;
+      border-radius: 6px;
+      margin: 1px 6px;
+      user-select: none;
+    }
+    .mcp-sidebar-project-header:hover { background: var(--surface); }
+    .mcp-chevron { font-size: 14px; color: var(--muted); transition: transform .15s; flex-shrink: 0; }
+    .mcp-chevron.open { transform: rotate(90deg); }
+    .mcp-project-label { flex: 1; font-size: 12px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mcp-count-badge { font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 9999px; background: var(--border); color: var(--muted); flex-shrink: 0; }
+    .mcp-sidebar-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      padding: 6px 12px;
+      margin: 1px 6px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .mcp-sidebar-item:hover { background: var(--surface); }
+    .mcp-sidebar-item.active { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+    .mcp-sidebar-item.active .mcp-sidebar-name { color: var(--accent); }
+    .mcp-sidebar-item.indented { padding-left: 28px; }
+    .mcp-sidebar-name { font-size: 12px; font-weight: 500; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mcp-sidebar-badges { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+
+    /* ── MCP info card ── */
+    .mcp-info-table {
+      display: grid;
+      grid-template-columns: 120px 1fr;
+      gap: 0;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .mcp-info-key {
+      padding: 10px 14px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      color: var(--muted);
+      background: color-mix(in srgb, var(--surface) 60%, transparent);
+      border-bottom: 1px solid var(--border);
+    }
+    .mcp-info-val {
+      padding: 10px 14px;
+      font-size: 13px;
+      color: var(--text);
+      border-bottom: 1px solid var(--border);
+      word-break: break-all;
+      white-space: pre-wrap;
+    }
+    .mcp-info-val.mono {
+      font-family: 'SF Mono', 'Fira Code', ui-monospace, monospace;
+      font-size: 12px;
+    }
+    .mcp-info-key:last-of-type,
+    .mcp-info-val:last-of-type { border-bottom: none; }
+    .mcp-snippet-hdr {
+      margin-top: 20px;
+      margin-bottom: 8px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: var(--muted);
+    }
+    .mcp-snippet {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+    }
 
     /* ── JSON preview ── */
     .json-preview {

@@ -1,6 +1,6 @@
 // ── State ──────────────────────────────────────────────────────────────────
 let projects = [];
-let commands = [];
+let skills = [];
 let mcpServers = [];
 let activeProjectId = null;
 let activeFilePath = null;

@@ -41,8 +41,8 @@ async function openFile(filePath, filename, permanent = false) {
   saveTabState();
 
   if (currentTab === 'commands') {
-    renderCommandsMiddlePanel();
-    renderCommandSidebar();
+    renderSkillsPanel();
+    renderSkillsSidebar();
   }
 }
 
@@ -348,9 +348,9 @@ async function saveFile() {
     projects = await api('GET', '/api/projects');
     renderProjects();
   } else if (currentTab === 'commands') {
-    commands = await api('GET', '/api/commands');
-    renderCommandsMiddlePanel();
-    renderCommandSidebar();
+    skills = await api('GET', '/api/skills');
+    renderSkillsPanel();
+    renderSkillsSidebar();
   }
 }
 
@@ -365,8 +365,8 @@ async function deleteFile(filePath) {
   if (currentTab === 'memory' && activeProjectId) {
     await selectProject(activeProjectId);
   } else if (currentTab === 'commands') {
-    commands = await api('GET', '/api/commands');
-    renderCommandsMiddlePanel();
-    renderCommandSidebar();
+    skills = await api('GET', '/api/skills');
+    renderSkillsPanel();
+    renderSkillsSidebar();
   }
 }

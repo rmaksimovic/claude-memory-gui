@@ -60,7 +60,7 @@
         <span class="material-symbols-outlined sidebar-tab-icon">bookmark</span>Bookmarks
       </div>
       <div class="sidebar-tab" id="tab-commands" onclick="switchTab('commands')">
-        <span class="material-symbols-outlined sidebar-tab-icon">terminal</span>Commands
+        <span class="material-symbols-outlined sidebar-tab-icon">terminal</span>Skills
       </div>
       <div class="sidebar-tab" id="tab-mcp" onclick="switchTab('mcp')">
         <span class="material-symbols-outlined sidebar-tab-icon">hub</span>MCP
@@ -127,9 +127,9 @@
       <div id="bookmarks-sidebar-list"></div>
     </div>
 
-    <!-- Commands list (commands tab) -->
+    <!-- Skills list (commands tab) -->
     <div class="sidebar-section hidden" id="section-commands">
-      <div class="sidebar-title">Custom Commands</div>
+      <div class="sidebar-title">Skills</div>
       <div id="command-sidebar-list"></div>
     </div>
 
@@ -208,17 +208,17 @@
   </div>
 </div>
 
-<!-- New command modal -->
+<!-- New skill modal -->
 <div class="modal-overlay" id="new-command-modal" style="display:none">
   <div class="modal">
-    <h2>New Command</h2>
+    <h2>New Skill</h2>
     <div class="field">
-      <label>Command name (used as /name in Claude Code)</label>
+      <label>Skill name (used as /name in Claude Code)</label>
       <input id="nc-name" type="text" placeholder="e.g. my-task" />
     </div>
     <div class="field">
       <label>Instructions (what Claude should do when invoked)</label>
-      <textarea id="nc-body" rows="6" placeholder="Describe what this command should do…"></textarea>
+      <textarea id="nc-body" rows="6" placeholder="Describe what this skill should do…"></textarea>
     </div>
     <div class="modal-actions">
       <button class="btn-sm" id="nc-cancel">Cancel</button>

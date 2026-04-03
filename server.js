@@ -9,7 +9,7 @@ const { listProjects, listMemoryFiles, buildSearchIndex } = require('./lib/proje
 const { syncMemoryIndex, healthCheck } = require('./lib/health');
 const { listConversations, parseFullConversation, forkConversation, summarizeConversation, summarizeFile, computeProjectCost } = require('./lib/conversations');
 const { MODEL_PRICING } = require('./lib/config');
-const { GLOBAL_COMMANDS_DIR, PLANS_DIR, listCommands } = require('./lib/commands');
+const { GLOBAL_COMMANDS_DIR, PLANS_DIR, listCommands, listSkills } = require('./lib/commands');
 const { gitInfoHandler, blameHandler, gitAutoTrack } = require('./lib/git');
 const { setupSSE } = require('./lib/sse');
 const { listMcpServers } = require('./lib/mcp');
@@ -211,9 +211,14 @@ app.get('/api/projects/:id/mdfiles', requireProject, (req, res) => {
   res.json(listProjectMdFiles(req.project.realPath));
 });
 
-// List all commands
+// List all commands (flat, legacy)
 app.get('/api/commands', (req, res) => {
   res.json(listCommands());
+});
+
+// List skills grouped by scope
+app.get('/api/skills', (req, res) => {
+  res.json(listSkills());
 });
 
 // Create a new command

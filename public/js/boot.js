@@ -63,13 +63,13 @@ async function boot() {
   applyFiltersCollapsed();
   applyDirsCollapsed();
   document.getElementById('toggle-empty-btn')?.classList.toggle('active', showEmptyProjects);
-  [projects, commands, PRICING] = await Promise.all([
+  [projects, skills, PRICING] = await Promise.all([
     api('GET', '/api/projects'),
-    api('GET', '/api/commands'),
+    api('GET', '/api/skills'),
     api('GET', '/api/pricing'),
   ]);
   renderProjects();
-  renderCommandSidebar();
+  renderSkillsSidebar();
   renderBookmarksSidebar();
   api('GET', '/api/mcp').then(data => { mcpServers = data; renderMcpSidebar(); }).catch(() => {});
   setupSSE();
@@ -89,7 +89,7 @@ function switchTab(tab) {
   document.getElementById('section-mcp').classList.toggle('hidden', tab !== 'mcp');
 
   if (tab === 'commands') {
-    renderCommandsMiddlePanel();
+    renderSkillsPanel();
   } else if (tab === 'mcp') {
     renderMcpPanel();
   } else if (tab === 'bookmarks') {
@@ -135,9 +135,9 @@ function setupSSE() {
           projects = await api('GET', '/api/projects');
           renderProjects();
         } else if (currentTab === 'commands') {
-          commands = await api('GET', '/api/commands');
-          renderCommandsMiddlePanel();
-          renderCommandSidebar();
+          skills = await api('GET', '/api/skills');
+          renderSkillsPanel();
+          renderSkillsSidebar();
         } else if (currentTab === 'mcp') {
           mcpServers = await api('GET', '/api/mcp');
           renderMcpPanel();

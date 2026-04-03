@@ -39,9 +39,9 @@ document.getElementById('nc-create').onclick = async () => {
   document.getElementById('new-command-modal').style.display = 'none';
   document.getElementById('nc-name').value = '';
   document.getElementById('nc-body').value = '';
-  commands = await api('GET', '/api/commands');
-  renderCommandsMiddlePanel();
-  renderCommandSidebar();
+  skills = await api('GET', '/api/skills');
+  renderSkillsPanel();
+  renderSkillsSidebar();
 };
 document.getElementById('new-command-modal').onclick = e => {
   if (e.target === e.currentTarget) document.getElementById('new-command-modal').style.display = 'none';
