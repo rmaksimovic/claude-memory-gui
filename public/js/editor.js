@@ -68,6 +68,15 @@ function renderEditor(filePath, filename, content) {
   const summarizeBtn = buildSummarizeFeature(pane, tab, filePath);
   header.querySelector('.conv-title-actions').prepend(summarizeBtn);
 
+  const bookmarkBtn = document.createElement('button');
+  bookmarkBtn.id = 'editor-bookmark-btn';
+  const isBookmarked = isFileBookmarked(filePath);
+  bookmarkBtn.className = 'stats-toggle-btn' + (isBookmarked ? ' active' : '');
+  bookmarkBtn.title = isBookmarked ? 'Remove bookmark' : 'Bookmark this file';
+  bookmarkBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:14px">bookmark</span>';
+  bookmarkBtn.onclick = () => toggleFileBookmark(filePath, filename);
+  header.querySelector('.conv-title-actions').prepend(bookmarkBtn);
+
   const blameBtn = document.createElement('button');
   blameBtn.className = 'stats-toggle-btn' + (blameGutterVisible ? ' active' : '');
   blameBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:14px">history</span> Blame';

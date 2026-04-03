@@ -56,6 +56,9 @@
       <div class="sidebar-tab active" id="tab-memory" onclick="switchTab('memory')">
         <span class="material-symbols-outlined sidebar-tab-icon">folder</span>Projects
       </div>
+      <div class="sidebar-tab" id="tab-bookmarks" onclick="switchTab('bookmarks')">
+        <span class="material-symbols-outlined sidebar-tab-icon">bookmark</span>Bookmarks
+      </div>
       <div class="sidebar-tab" id="tab-commands" onclick="switchTab('commands')">
         <span class="material-symbols-outlined sidebar-tab-icon">terminal</span>Commands
       </div>
@@ -116,6 +119,12 @@
       </div>
 
       <div class="tree-footer" id="tree-footer"></div>
+    </div>
+
+    <!-- Bookmarks list (bookmarks tab) -->
+    <div class="sidebar-section hidden" id="section-bookmarks">
+      <div class="sidebar-title">Bookmarked Files</div>
+      <div id="bookmarks-sidebar-list"></div>
     </div>
 
     <!-- Commands list (commands tab) -->
@@ -230,6 +239,7 @@
 <script src="js/files.js"></script>
 <script src="js/editor.js"></script>
 <script src="js/commands.js"></script>
+<script src="js/bookmarks.js"></script>
 <script src="js/mcp.js"></script>
 <script src="js/conversations.js"></script>
 <script src="js/modals.js"></script>

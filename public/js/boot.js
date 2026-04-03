@@ -69,6 +69,7 @@ async function boot() {
   ]);
   renderProjects();
   renderCommandSidebar();
+  renderBookmarksSidebar();
   api('GET', '/api/mcp').then(data => { mcpServers = data; renderMcpSidebar(); }).catch(() => {});
   setupSSE();
   await restoreSessionState();
@@ -78,9 +79,11 @@ async function boot() {
 function switchTab(tab) {
   currentTab = tab;
   document.getElementById('tab-memory').classList.toggle('active', tab === 'memory');
+  document.getElementById('tab-bookmarks').classList.toggle('active', tab === 'bookmarks');
   document.getElementById('tab-commands').classList.toggle('active', tab === 'commands');
   document.getElementById('tab-mcp').classList.toggle('active', tab === 'mcp');
   document.getElementById('section-memory').classList.toggle('hidden', tab !== 'memory');
+  document.getElementById('section-bookmarks').classList.toggle('hidden', tab !== 'bookmarks');
   document.getElementById('section-commands').classList.toggle('hidden', tab !== 'commands');
   document.getElementById('section-mcp').classList.toggle('hidden', tab !== 'mcp');
 
@@ -88,6 +91,9 @@ function switchTab(tab) {
     renderCommandsMiddlePanel();
   } else if (tab === 'mcp') {
     renderMcpPanel();
+  } else if (tab === 'bookmarks') {
+    renderBookmarksPanel();
+    renderBookmarksSidebar();
   } else {
     // Restore memory panel
     if (activeProjectId) {

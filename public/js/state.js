@@ -44,4 +44,5 @@ let filtersCollapsed = _ui.filtersCollapsed ?? true;
 let pinnedCollapsed = _ui.pinnedCollapsed ?? false;
 let dirsCollapsed = _ui.dirsCollapsed ?? false;
 let bookmarks = new Set(_ui.bookmarks ?? []);
+let fileBookmarks = _ui.fileBookmarks ?? [];
 const collapsedSections = new Set(); // 'alpha' | 'modified'
