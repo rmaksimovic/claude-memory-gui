@@ -102,14 +102,6 @@ function renderBookmarksPanel() {
     `;
     item.onclick = () => openFile(bm.filePath, bm.filename);
 
-    const removeBtn = document.createElement('button');
-    removeBtn.className = 'file-bookmark-btn bookmarked';
-    removeBtn.dataset.filepath = bm.filePath;
-    removeBtn.title = 'Remove bookmark';
-    removeBtn.innerHTML = '<span class="material-symbols-outlined">bookmark</span>';
-    removeBtn.onclick = (e) => { e.stopPropagation(); toggleFileBookmark(bm.filePath, bm.filename); };
-    item.appendChild(removeBtn);
-
     el.appendChild(item);
   }
 

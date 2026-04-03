@@ -17,18 +17,36 @@ const ICON_COMMAND = `<svg class="empty-icon" viewBox="0 0 24 24" fill="none" st
 </svg>`;
 
 // ── Utils ──────────────────────────────────────────────────────────────────
-function relativeTime(mtime) {
+function relativeTime(mtime, verbose = false) {
   const diff = Date.now() - new Date(mtime).getTime();
   const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
+  if (!verbose) {
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    if (days < 30) return `${days}d ago`;
+    const months = Math.floor(days / 30);
+    if (months < 12) return `${months}mo ago`;
+    return `${Math.floor(months / 12)}y ago`;
+  }
+  // verbose: used for blame gutter labels
+  if (mins < 1)  return 'just now';
+  if (mins < 60) return `${mins} min${mins === 1 ? '' : 's'} ago`;
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
+  if (hrs < 24)  return `${hrs} hour${hrs === 1 ? '' : 's'} ago`;
   const days = Math.floor(hrs / 24);
-  if (days < 30) return `${days}d ago`;
-  const months = Math.floor(days / 30);
-  if (months < 12) return `${months}mo ago`;
-  return `${Math.floor(months / 12)}y ago`;
+  if (days === 1) return 'yesterday';
+  if (days < 7)  return `${days} days ago`;
+  if (days < 14) return 'last week';
+  const wks = Math.floor(days / 7);
+  if (days < 30) return `${wks} weeks ago`;
+  const mos = Math.floor(days / 30);
+  if (mos === 1)  return 'last month';
+  if (mos < 12)  return `${mos} months ago`;
+  const yrs = Math.floor(mos / 12);
+  return `${yrs} year${yrs === 1 ? '' : 's'} ago`;
 }
 
 function formatBytes(b) {
@@ -48,6 +66,7 @@ function escAttr(s) {
 // Remove XML protocol tags injected by Claude Code (e.g. <local-command-caveat>,
 // <command-name>, <system-reminder>). Returns the remaining human-readable text.
 // Handles both complete <tag>...</tag> pairs and orphaned opening tags (truncated content).
+// Backend equivalent: stripXmlTags() in lib/conversations.js
 function stripSystemTags(text) {
   return String(text)
     .replace(/<[a-z][a-z0-9-]*(?:\s[^>]*)?>[\s\S]*?<\/[a-z][a-z0-9-]*>/gi, '') // paired tags
@@ -114,6 +133,57 @@ function buildSummarizeFeature(pane, tab, filePath) {
   });
 
   return btn;
+}
+
+// ── Frontmatter parser ─────────────────────────────────────────────────────
+// Parses YAML-style frontmatter delimited by ---. Returns { fmContent, body,
+// fmLineCount, type, name, description } — fmContent is null when absent.
+function parseFrontmatter(content) {
+  const m = content.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
+  if (!m) return { fmContent: null, body: content, fmLineCount: 0, type: null, name: null, description: null };
+  const fmContent = m[1];
+  const body = m[2];
+  const fmLineCount = fmContent.split('\n').length + 2;
+  const get = key => (fmContent.match(new RegExp(`^${key}:\\s*(.+)$`, 'm')) || [])[1]?.trim() ?? null;
+  return { fmContent, body, fmLineCount, type: get('type'), name: get('name'), description: get('description') };
+}
+
+// ── Collapsible section helpers ────────────────────────────────────────────
+// Generic toggle/apply pair for any sidebar section persisted to localStorage.
+// key: localStorage key (e.g. 'pinnedCollapsed'), elementId: DOM element id.
+function toggleCollapsible(key, elementId, defaultVal = false) {
+  const current = loadUIState()[key] ?? defaultVal;
+  const next = !current;
+  saveUIState({ [key]: next });
+  document.getElementById(elementId)?.classList.toggle('collapsed', next);
+}
+function applyCollapsible(key, elementId, defaultVal = false) {
+  const val = loadUIState()[key] ?? defaultVal;
+  document.getElementById(elementId)?.classList.toggle('collapsed', val);
+}
+
+// ── Path row builder ───────────────────────────────────────────────────────
+// Returns a .file-list-footer-path-row div with path label + copy button.
+// Used by editor footer, conversation footer, and file-list footer.
+function buildPathRow(filePath) {
+  const row = document.createElement('div');
+  row.className = 'file-list-footer-path-row';
+  const pathEl = document.createElement('span');
+  pathEl.className = 'file-list-footer-path';
+  pathEl.textContent = filePath;
+  pathEl.title = filePath;
+  const copyBtn = document.createElement('button');
+  copyBtn.className = 'copy-path-btn';
+  copyBtn.title = 'Copy path';
+  copyBtn.textContent = '⎘';
+  copyBtn.onclick = async () => {
+    await navigator.clipboard.writeText(filePath);
+    copyBtn.textContent = '✓';
+    setTimeout(() => { copyBtn.textContent = '⎘'; }, 1200);
+  };
+  row.appendChild(pathEl);
+  row.appendChild(copyBtn);
+  return row;
 }
 
 // ── Shared view header (used by both file editor and conversation view) ──────

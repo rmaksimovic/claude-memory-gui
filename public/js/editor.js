@@ -52,9 +52,7 @@ function renderEditor(filePath, filename, content) {
   pane.innerHTML = '';
 
   // Build meta line: extract frontmatter type + line count
-  const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
-  const fmType = fmMatch ? (fmMatch[1].match(/^type:\s*(.+)$/m) || [])[1]?.trim() : null;
-  const fmName = fmMatch ? (fmMatch[1].match(/^name:\s*(.+)$/m) || [])[1]?.trim() : null;
+  const { type: fmType, name: fmName } = parseFrontmatter(content);
   const lineCount = content.split('\n').length;
   const metaParts = [fmType ? escHtml(fmType) + ' memory' : null, `${lineCount} lines`].filter(Boolean);
 
@@ -107,26 +105,10 @@ function renderEditor(filePath, filename, content) {
 
   renderPreview(pane, content, filePath);
 
-  // Footer: file path (matches file-list-footer style)
+  // Footer: file path
   const footer = document.createElement('div');
   footer.className = 'editor-footer';
-  const pathRow = document.createElement('div');
-  pathRow.className = 'file-list-footer-path-row';
-  const pathEl = document.createElement('span');
-  pathEl.className = 'file-list-footer-path';
-  pathEl.textContent = filePath;
-  pathEl.title = filePath;
-  const copyBtn = document.createElement('button');
-  copyBtn.className = 'copy-path-btn';
-  copyBtn.textContent = 'Copy';
-  copyBtn.addEventListener('click', () => {
-    navigator.clipboard.writeText(filePath);
-    copyBtn.textContent = 'Copied!';
-    setTimeout(() => { copyBtn.textContent = 'Copy'; }, 1500);
-  });
-  pathRow.appendChild(pathEl);
-  pathRow.appendChild(copyBtn);
-  footer.appendChild(pathRow);
+  footer.appendChild(buildPathRow(filePath));
   pane.appendChild(footer);
 }
 
@@ -157,28 +139,8 @@ function buildFrontmatterBlock(fmContent) {
   return fmBlock;
 }
 
-function blameRelative(ts) {
-  const diff = Date.now() - ts;
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1)  return 'just now';
-  if (mins < 60) return `${mins} min${mins === 1 ? '' : 's'} ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24)  return `${hrs} hour${hrs === 1 ? '' : 's'} ago`;
-  const days = Math.floor(hrs / 24);
-  if (days === 1) return 'yesterday';
-  if (days < 7)  return `${days} days ago`;
-  if (days < 14) return 'last week';
-  const wks = Math.floor(days / 7);
-  if (days < 30) return `${wks} weeks ago`;
-  const mos = Math.floor(days / 30);
-  if (mos === 1)  return 'last month';
-  if (mos < 12)  return `${mos} months ago`;
-  const yrs = Math.floor(mos / 12);
-  return `${yrs} year${yrs === 1 ? '' : 's'} ago`;
-}
-
 function blameDate(ts) {
-  return `<span class="bd-rel">${blameRelative(ts)}</span>`;
+  return `<span class="bd-rel">${relativeTime(ts, true)}</span>`;
 }
 
 function blameLineCount(raw) {
@@ -291,12 +253,10 @@ function renderMarkdownPreview(pane, content, filePath) {
   const div = document.createElement('div');
   div.className = 'md-preview';
 
-  const fmMatch = content.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
-  const body = fmMatch ? fmMatch[2] : content;
-  const fmLineCount = fmMatch ? fmMatch[1].split('\n').length + 2 : 0;
+  const { fmContent, body, fmLineCount } = parseFrontmatter(content);
 
-  if (fmMatch) {
-    div.appendChild(buildFrontmatterBlock(fmMatch[1]));
+  if (fmContent) {
+    div.appendChild(buildFrontmatterBlock(fmContent));
     div.insertAdjacentHTML('beforeend', marked.parse(body));
   } else {
     div.innerHTML = marked.parse(content);
@@ -314,13 +274,13 @@ function renderMarkdownPreview(pane, content, filePath) {
     scroll.innerHTML = '';
     const grid = document.createElement('div');
     grid.className = 'blame-grid';
-    if (fmMatch) {
+    if (fmContent) {
       const fmDateCell = document.createElement('div');
       fmDateCell.className = 'blame-date-cell first-cell';
       const fmContentCell = document.createElement('div');
       fmContentCell.className = 'blame-content-cell md-preview first-cell';
       fmContentCell.style.paddingBottom = '8px';
-      const fmBlock = buildFrontmatterBlock(fmMatch[1]);
+      const fmBlock = buildFrontmatterBlock(fmContent);
       fmBlock.style.border = 'none';
       fmBlock.style.background = 'none';
       fmBlock.style.padding = '0';
@@ -329,7 +289,7 @@ function renderMarkdownPreview(pane, content, filePath) {
       grid.appendChild(fmDateCell);
       grid.appendChild(fmContentCell);
     }
-    renderBlameGrid(grid, body, fmLineCount, blame, !!fmMatch);
+    renderBlameGrid(grid, body, fmLineCount, blame, !!fmContent);
     scroll.appendChild(grid);
     scroll.scrollTop = savedScrollTop;
   }).catch(() => {});

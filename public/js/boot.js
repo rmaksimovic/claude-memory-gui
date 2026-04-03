@@ -63,9 +63,10 @@ async function boot() {
   applyFiltersCollapsed();
   applyDirsCollapsed();
   document.getElementById('toggle-empty-btn')?.classList.toggle('active', showEmptyProjects);
-  [projects, commands] = await Promise.all([
+  [projects, commands, PRICING] = await Promise.all([
     api('GET', '/api/projects'),
     api('GET', '/api/commands'),
+    api('GET', '/api/pricing'),
   ]);
   renderProjects();
   renderCommandSidebar();

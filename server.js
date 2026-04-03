@@ -24,6 +24,15 @@ app.use(express.static(path.join(__dirname, 'public'), {
   }
 }));
 
+// ── Middleware ─────────────────────────────────────────────────────────────
+
+function requireProject(req, res, next) {
+  const proj = listProjects().find(p => p.id === req.params.id);
+  if (!proj) return res.status(404).json({ error: 'Project not found' });
+  req.project = proj;
+  next();
+}
+
 // ── Routes ─────────────────────────────────────────────────────────────────
 
 // List projects
@@ -31,11 +40,14 @@ app.get('/api/projects', (req, res) => {
   res.json(listProjects());
 });
 
+// Pricing table (single source of truth — frontend fetches this instead of duplicating)
+app.get('/api/pricing', (req, res) => {
+  res.json(MODEL_PRICING);
+});
+
 // List memories for a project
-app.get('/api/projects/:id/memories', (req, res) => {
-  const proj = listProjects().find(p => p.id === req.params.id);
-  if (!proj) return res.status(404).json({ error: 'Project not found' });
-  res.json(listMemoryFiles(proj.memoryDir));
+app.get('/api/projects/:id/memories', requireProject, (req, res) => {
+  res.json(listMemoryFiles(req.project.memoryDir));
 });
 
 // Get a single file's content
@@ -72,9 +84,8 @@ app.put('/api/file', (req, res) => {
 });
 
 // Create new memory file
-app.post('/api/projects/:id/memories', (req, res) => {
-  const proj = listProjects().find(p => p.id === req.params.id);
-  if (!proj) return res.status(404).json({ error: 'Project not found' });
+app.post('/api/projects/:id/memories', requireProject, (req, res) => {
+  const proj = req.project;
   const { filename, content } = req.body;
   if (!filename || !content) return res.status(400).json({ error: 'Missing filename or content' });
   ensureDir(proj.memoryDir);
@@ -131,33 +142,25 @@ function extractSnippet(text, q) {
 }
 
 // Health check for a project
-app.get('/api/projects/:id/health', (req, res) => {
-  const proj = listProjects().find(p => p.id === req.params.id);
-  if (!proj) return res.status(404).json({ error: 'Project not found' });
-  res.json(healthCheck(proj.memoryDir));
+app.get('/api/projects/:id/health', requireProject, (req, res) => {
+  res.json(healthCheck(req.project.memoryDir));
 });
 
 // Get CLAUDE.md for a project
-app.get('/api/projects/:id/claude-md', (req, res) => {
-  const proj = listProjects().find(p => p.id === req.params.id);
-  if (!proj) return res.status(404).json({ error: 'Project not found' });
+app.get('/api/projects/:id/claude-md', requireProject, (req, res) => {
+  const proj = req.project;
   if (!proj.claudeMd) return res.json({ content: '', filePath: null });
   res.json({ content: readFileOrNull(proj.claudeMd) || '', filePath: proj.claudeMd });
 });
 
 // Estimate total cost for a project
-app.get('/api/projects/:id/cost', (req, res) => {
-  const proj = listProjects().find(p => p.id === req.params.id);
-  if (!proj) return res.status(404).json({ error: 'Project not found' });
-  const cost = computeProjectCost(proj.path, MODEL_PRICING);
-  res.json({ cost });
+app.get('/api/projects/:id/cost', requireProject, (req, res) => {
+  res.json({ cost: computeProjectCost(req.project.path, MODEL_PRICING) });
 });
 
 // List conversations for a project
-app.get('/api/projects/:id/conversations', (req, res) => {
-  const proj = listProjects().find(p => p.id === req.params.id);
-  if (!proj) return res.status(404).json({ error: 'Project not found' });
-  res.json(listConversations(proj.path));
+app.get('/api/projects/:id/conversations', requireProject, (req, res) => {
+  res.json(listConversations(req.project.path));
 });
 
 // Read a full conversation
@@ -203,15 +206,9 @@ app.post('/api/summarize-file', async (req, res) => {
 });
 
 // Project MD files
-app.get('/api/projects/:id/mdfiles', (req, res) => {
-  const proj = listProjects().find(p => p.id === req.params.id);
-  if (!proj) return res.status(404).json({ error: 'Project not found' });
-  if (req.params.id === '__global__') {
-    // For global project, expose ~/.claude/plans/*.md
-    res.json(listProjectMdFiles(PLANS_DIR, 1));
-  } else {
-    res.json(listProjectMdFiles(proj.realPath));
-  }
+app.get('/api/projects/:id/mdfiles', requireProject, (req, res) => {
+  if (req.params.id === '__global__') return res.json(listProjectMdFiles(PLANS_DIR, 1));
+  res.json(listProjectMdFiles(req.project.realPath));
 });
 
 // List all commands

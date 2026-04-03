@@ -281,23 +281,7 @@ function renderChatView(pane, conv, messages) {
   // Footer: file path
   const footer = document.createElement('div');
   footer.className = 'editor-footer';
-  const pathRow = document.createElement('div');
-  pathRow.className = 'file-list-footer-path-row';
-  const pathEl = document.createElement('span');
-  pathEl.className = 'file-list-footer-path';
-  pathEl.textContent = conv.filePath;
-  pathEl.title = conv.filePath;
-  const copyBtn = document.createElement('button');
-  copyBtn.className = 'copy-path-btn';
-  copyBtn.textContent = 'Copy';
-  copyBtn.addEventListener('click', () => {
-    navigator.clipboard.writeText(conv.filePath);
-    copyBtn.textContent = 'Copied!';
-    setTimeout(() => { copyBtn.textContent = 'Copy'; }, 1500);
-  });
-  pathRow.appendChild(pathEl);
-  pathRow.appendChild(copyBtn);
-  footer.appendChild(pathRow);
+  footer.appendChild(buildPathRow(conv.filePath));
   pane.appendChild(footer);
 
   if (statsPanelOpen) showConvStatsPanel(messages, conv);

@@ -249,24 +249,7 @@ function renderFileList(proj, files, health, conversations = [], mdFiles = []) {
 
   footer.appendChild(countRow);
   if (proj && proj.path) {
-    const pathRow = document.createElement('div');
-    pathRow.className = 'file-list-footer-path-row';
-    const pathSpan = document.createElement('span');
-    pathSpan.className = 'file-list-footer-path';
-    pathSpan.textContent = proj.path;
-    pathSpan.title = proj.path;
-    pathRow.appendChild(pathSpan);
-    const copyBtn = document.createElement('button');
-    copyBtn.className = 'copy-path-btn';
-    copyBtn.title = 'Copy path';
-    copyBtn.textContent = '⎘';
-    copyBtn.onclick = async () => {
-      await navigator.clipboard.writeText(proj.path);
-      copyBtn.textContent = '✓';
-      setTimeout(() => { copyBtn.textContent = '⎘'; }, 1200);
-    };
-    pathRow.appendChild(copyBtn);
-    footer.appendChild(pathRow);
+    footer.appendChild(buildPathRow(proj.path));
   }
   if (!footerEl) el.appendChild(footer);
 }

@@ -106,23 +106,11 @@ function renderPinnedSection() {
   applyPinnedCollapsed();
 }
 
-function togglePinnedCollapsed() {
-  pinnedCollapsed = !pinnedCollapsed;
-  saveUIState({ pinnedCollapsed });
-  applyPinnedCollapsed();
-}
-function applyPinnedCollapsed() {
-  document.getElementById('pinned-card')?.classList.toggle('collapsed', pinnedCollapsed);
-}
+function togglePinnedCollapsed() { toggleCollapsible('pinnedCollapsed', 'pinned-card', false); }
+function applyPinnedCollapsed()  { applyCollapsible('pinnedCollapsed', 'pinned-card', false); }
 
-function toggleDirsCollapsed() {
-  dirsCollapsed = !dirsCollapsed;
-  saveUIState({ dirsCollapsed });
-  applyDirsCollapsed();
-}
-function applyDirsCollapsed() {
-  document.getElementById('dirs-card')?.classList.toggle('collapsed', dirsCollapsed);
-}
+function toggleDirsCollapsed() { toggleCollapsible('dirsCollapsed', 'dirs-card', false); }
+function applyDirsCollapsed()  { applyCollapsible('dirsCollapsed', 'dirs-card', false); }
 
 // ── Render projects ────────────────────────────────────────────────────────
 // Track which folders have been explicitly closed (everything open by default)
@@ -246,6 +234,27 @@ function renderTreeNode(container, node, depth, pathKey) {
   }
 }
 
+// ── Fetch all project data (memories, health, conversations, mdfiles) ───────
+async function fetchProjectData(id) {
+  const fetches = [
+    api('GET', `/api/projects/${id}/memories`),
+    api('GET', `/api/projects/${id}/health`),
+    activeFilters.has('conversations') ? api('GET', `/api/projects/${id}/conversations`) : Promise.resolve([]),
+    activeFilters.has('claudemd') ? api('GET', `/api/projects/${id}/mdfiles`) : Promise.resolve([]),
+  ];
+  const results = await Promise.allSettled(fetches);
+  const settled = (i, fallback) => results[i].status === 'fulfilled' ? results[i].value : fallback;
+  if (results.some(r => r.status === 'rejected')) {
+    console.warn('[fetchProjectData] some fetches failed:', results.filter(r => r.status === 'rejected').map(r => r.reason));
+  }
+  return {
+    memories: settled(0, []),
+    health: settled(1, []),
+    conversations: settled(2, []),
+    mdFiles: settled(3, []),
+  };
+}
+
 // ── Select project ─────────────────────────────────────────────────────────
 async function selectProject(id) {
   document.getElementById('file-list').innerHTML = '<div class="empty"><div class="spinner"></div></div>';
@@ -257,23 +266,13 @@ async function selectProject(id) {
   renderProjects();
 
   const proj = projects.find(p => p.id === id);
-  const fetches = [
-    api('GET', `/api/projects/${id}/memories`),
-    api('GET', `/api/projects/${id}/health`),
-    activeFilters.has('conversations') ? api('GET', `/api/projects/${id}/conversations`) : Promise.resolve([]),
-    activeFilters.has('claudemd') ? api('GET', `/api/projects/${id}/mdfiles`) : Promise.resolve([]),
-  ];
-  const results = await Promise.allSettled(fetches);
+  const data = await fetchProjectData(id);
   // Guard against race: if another project was selected while fetching, discard stale results
   if (activeProjectId !== id) return;
-  const settled = (i, fallback) => results[i].status === 'fulfilled' ? results[i].value : fallback;
-  files = settled(0, []);
-  cachedHealth = settled(1, []);
-  cachedConversations = settled(2, []);
-  cachedMdFiles = settled(3, []);
-  if (results.some(r => r.status === 'rejected')) {
-    console.warn('[selectProject] some fetches failed:', results.filter(r => r.status === 'rejected').map(r => r.reason));
-  }
+  files = data.memories;
+  cachedHealth = data.health;
+  cachedConversations = data.conversations;
+  cachedMdFiles = data.mdFiles;
   renderFileList(proj, files, cachedHealth, cachedConversations, cachedMdFiles);
 
   // Refresh content of any open file tabs that belong to this project
@@ -340,14 +339,8 @@ function toggleGroupFiles() {
 }
 
 // ── Filter panel collapse toggle ───────────────────────────────────────────
-function toggleFiltersCollapsed() {
-  filtersCollapsed = !filtersCollapsed;
-  saveUIState({ filtersCollapsed });
-  applyFiltersCollapsed();
-}
-function applyFiltersCollapsed() {
-  document.getElementById('filter-section')?.classList.toggle('collapsed', filtersCollapsed);
-}
+function toggleFiltersCollapsed() { toggleCollapsible('filtersCollapsed', 'filter-section', true); }
+function applyFiltersCollapsed()  { applyCollapsible('filtersCollapsed', 'filter-section', true); }
 
 // ── Show-empty toggle ──────────────────────────────────────────────────────
 function toggleShowEmpty() {
